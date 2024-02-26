@@ -1,0 +1,644 @@
+﻿using System;
+using System.Linq;
+using System.Web;
+using System.Web.UI.WebControls;
+using System.Data;
+using System.Data.SqlClient;
+using System.Configuration;
+using System.Web.Services;
+using System.Windows.Forms;
+using System.Web.UI;
+using System.Web.UI.HtmlControls;
+using System.IO;
+using DevExpress.Web.ASPxEditors;
+using System.Drawing;
+using DevExpress.Web.ASPxGridView;
+using System.Collections;
+
+public partial class UserControl_TalepKontrol : System.Web.UI.Page
+{
+
+    #region Bağlantı Ayarları
+
+    SqlConnection DbConnUser = new SqlConnection(ConfigurationManager.ConnectionStrings["DbConnUser"].ToString());
+    SqlConnection DbConnSiparisler = new SqlConnection(ConfigurationManager.ConnectionStrings["DbConnLink"].ToString());
+    SqlConnection DbConnCariler = new SqlConnection(ConfigurationManager.ConnectionStrings["DbConnLink"].ToString());
+    SqlConnection DbConnFiyatlar = new SqlConnection(ConfigurationManager.ConnectionStrings["DbConnLink"].ToString());
+
+    SqlConnection DbConnTalepAcan = new SqlConnection(ConfigurationManager.ConnectionStrings["DbConnUser"].ToString());
+    SqlConnection DbConnTalepAcanYetki = new SqlConnection(ConfigurationManager.ConnectionStrings["DbConnUser"].ToString());
+    SqlConnection DbConnTalepAcanDepartman = new SqlConnection(ConfigurationManager.ConnectionStrings["DbConnUser"].ToString());
+    SqlConnection DbConnTalepAkisYapilandir = new SqlConnection(ConfigurationManager.ConnectionStrings["DbConnUser"].ToString());
+
+    SqlCommand cmd, cmdSiparisler, cmdCariler, cmdFiyatlar, cmdKayitGetir, cmdGidecekDepartman, cmdTalepAcan, cmdTalepAcanYetki, cmdTalepAcanDepartmanKodu, cmdTalepAkisYapilandir;
+    SqlDataReader dr, drSiparisler, drCariler, drFiyatlar;
+
+    int OnaysizKayitlar, YetkiKodu, TalepAcanYetkisi;
+    string DepartmanKodu, EvrakNo, TalepEkleyen, TalepAcanDepartmanKodu, GelenKullanici, sonuc;
+    bool SiparisButonu, SatinAlmaButonu, SilmeDurumKontrol;
+
+    #endregion
+
+    protected void Page_Load(object sender, EventArgs e)
+    {
+        if (Session["Giris"] != "Evet")
+        {
+            Alert.Show("Lütfen Sisteme Tekrardan Giriş Yapınız.");
+            ClientScript.RegisterStartupScript(typeof(Page), "closePage", "window.close();", true);
+        }
+        else
+        {
+            int TalepID = Convert.ToInt32(Request.QueryString["TalepID"].ToString());
+            YetkiKodu = Convert.ToInt32(Session["Yetki"].ToString());
+            DepartmanKodu = Session["DepartmanKodu"].ToString();
+            string KullaniciKodu = Session["KullaniciKodu"].ToString();
+
+            string Linkimiz = "<a href=\"TalepDuzenle.aspx?TalepID=" + Convert.ToString(TalepID) + "\" title=\"Düzenle\" >" +
+                        "<img alt=\"\" border=\"0\" height=\"15\" src=\"../images/edit.png\" width=\"15\" /></a>";
+
+            string SilLinkimiz = "<a href=\"TalepSil.aspx?TalepID=" + Convert.ToString(TalepID) + "\" title=\"Sil\" >" +
+                        "<img alt=\"\" border=\"0\" height=\"15\" src=\"../images/delete.png\" width=\"15\" /></a>";
+
+            GelenKullanici = Session["KullaniciKodu"].ToString();
+            SiparisButonu = SiparisButonDurumu(GelenKullanici);
+            SatinAlmaButonu = SatinAlmaButonDurumu(GelenKullanici);
+            SilmeDurumKontrol = TalepSilmeDurumu(TalepID, KullaniciKodu);
+
+            btnFax.Visible = SiparisButonu;
+            btnidari.Visible = SiparisButonu;
+            btnihtiyac.Visible = SiparisButonu;
+            btnSiparis.Visible = SiparisButonu;
+            btnTeknik.Visible = SiparisButonu;
+            btnStokCikis.Visible = SatinAlmaButonu;
+            btnTalepKapat.Visible = SiparisButonu;
+
+            ltdLink.Text = Linkimiz.ToString();
+            imgTalepSil.Visible = SilmeDurumKontrol;
+            OnaysizKayitlar = OnayCountSearch(KullaniciKodu, YetkiKodu, DepartmanKodu, TalepID);
+
+            if (OnaysizKayitlar <= 0)
+            {
+                btnReddet.Visible = false;
+                redSebep.Visible = false;
+                //ltdLink.Visible = false;
+                TalepDurumKontrol(TalepID);
+                BaglantilariKapat();
+            }
+            else
+            {
+                btnReddet.Visible = true;
+                redSebep.Visible = true;
+                TalepDurumKontrol(TalepID);
+                BaglantilariKapat();
+            }
+        }
+
+    }
+
+    private void TalepDurumKontrol(int TalepID)
+    {
+        if (DbConnUser.State == ConnectionState.Closed)
+            DbConnUser.Open();
+
+        string sorgu = @"SELECT EvrakNoTarih+EvrakNo AS EvrakNo,CONVERT(VARCHAR(10),(CONVERT(DATETIME,KayitTarihi-2)),104)+' '+Saat AS ihtiyac_Tarihi, 
+            DepartmanAdi,AdSoyad,T.MasrafMerkeziAdi AS KullanilacakDepartman,i.IhtiyacAdi AS ihtiyacNedeni,TY.TeminAdi AS TeminYeri, 
+            CONVERT(VARCHAR(10),(CONVERT(DATETIME,Tarih-2)),104) AS TeslimTarihi,MalKodu,MalAdi,Miktar AS ihtiyacMiktari,Aciklama,Aciklama2,Aciklama3, 
+            RedNedeni,DegisiklikNedeni,SiparisNo, SipMiktar AS SiparisMiktar,ISNULL(BirimFiyati,0) AS BirimFiyati,
+            ISNULL(CariUnvan,'') AS CariUnvan,CikisMiktar AS ToplamCikisYapilanMiktar 
+            FROM Tlp AS T 
+            INNER JOIN Ihtiyaclar AS i ON T.ihtiyacNedeni=i.IhtiyacKodu 
+            INNER JOIN TeminYeri AS TY ON T.TeminYeri=TY.TeminKodu 
+            WHERE TalepID=" + TalepID + "" +
+            @"GROUP BY EvrakNoTarih+EvrakNo,CONVERT(VARCHAR(10),(CONVERT(DATETIME,KayitTarihi-2)),104)+' '+Saat, 
+            DepartmanAdi,AdSoyad,T.MasrafMerkeziAdi,i.IhtiyacAdi,TY.TeminAdi, 
+            CONVERT(VARCHAR(10),(CONVERT(DATETIME,Tarih-2)),104),MalKodu,MalAdi,Miktar,Aciklama,Aciklama2,Aciklama3, 
+            RedNedeni,DegisiklikNedeni,SiparisNo, SipMiktar,ISNULL(BirimFiyati,0),
+            ISNULL(CariUnvan,''),CikisMiktar";
+
+        cmd = new SqlCommand(sorgu, DbConnUser);
+        cmd.CommandTimeout = 120;
+        dr = cmd.ExecuteReader(CommandBehavior.CloseConnection);
+
+        while (dr.Read())
+        {
+            lblAciklama1.Text = dr["Aciklama"].ToString();
+            lblAciklama2.Text = dr["Aciklama2"].ToString();
+            lblAciklama3.Text = dr["Aciklama3"].ToString();
+            lblDepartman.Text = dr["DepartmanAdi"].ToString();
+            lblihtiyacMiktari.Text = dr["ihtiyacMiktari"].ToString().Replace('.', '.');
+            lblihtiyacNo.Text = dr["EvrakNo"].ToString();
+            lblihtiyacTarihi.Text = dr["ihtiyac_Tarihi"].ToString();
+            lblistemeNedeni.Text = dr["ihtiyacNedeni"].ToString();
+            lblKullanilacakDepartman.Text = dr["KullanilacakDepartman"].ToString();
+            lblRedNedeni.Text = dr["RedNedeni"].ToString();
+            //lblSiparisNo.Text = dr["SiparisNo"].ToString();
+            lblStokAdi.Text = dr["MalAdi"].ToString();
+            lblStokKodu.Text = dr["MalKodu"].ToString();
+            lblTalepEdenKisi.Text = dr["AdSoyad"].ToString();
+            lblTeminYeri.Text = dr["TeminYeri"].ToString();
+            lblTeslimTarihi.Text = dr["TeslimTarihi"].ToString();
+            lblCikisMiktar.Text = dr["ToplamCikisYapilanMiktar"].ToString();
+            lblDegisiklikNedeni.Text = dr["DegisiklikNedeni"].ToString();
+
+            lblBirimFiyat.Text += dr["BirimFiyati"].ToString() + " TL / ";
+            lblBirimFiyat.ForeColor = Color.DarkRed;
+            lblBirimFiyat.Font.Bold = true;
+
+            lblMiktar.Text += dr["SiparisMiktar"].ToString() + " / ";
+            lblMiktar.ForeColor = Color.Black;
+            lblMiktar.Font.Bold = true;
+
+            lblSiparisNo.Text += dr["SiparisNo"].ToString() + " / ";
+            lblSiparisNo.ForeColor = Color.LightGoldenrodYellow;
+            lblSiparisNo.Font.Bold = true;
+
+            lblCariHesap.Text += dr["CariUnvan"].ToString() + " / ";
+            lblCariHesap.ForeColor = Color.Lavender;
+            lblCariHesap.Font.Bold = true;
+        }
+
+        dr.Dispose();
+        dr.Close();
+
+        string CikEvrakNo = CikisHareketNoBul(lblihtiyacNo.Text);
+
+        if (!string.IsNullOrEmpty(CikEvrakNo))
+        {
+            lblCikisEvrakNo.Text = CikEvrakNo;
+        }
+        else
+        {
+            lblCikisEvrakNo.Text = "";
+        }
+
+        //SiparisNumaralari(lblihtiyacNo.Text);
+        //CariHesapUnvanlari(lblihtiyacNo.Text);
+        //BirimFiyatveMiktar(lblihtiyacNo.Text);
+    }
+
+    private void SiparisNumaralari(string EvrakNumarasi)
+    {
+        if (DbConnSiparisler.State == ConnectionState.Closed)
+            DbConnSiparisler.Open();
+
+        string sorgu = "SELECT STK002_EvrakSeriNo FROM STK002 " +
+                    "WHERE STK002_MalSeriNo='" + EvrakNumarasi.ToString() + "' " +
+                    "GROUP BY STK002_EvrakSeriNo";
+
+        cmdSiparisler = new SqlCommand(sorgu, DbConnSiparisler);
+        cmdSiparisler.CommandTimeout = 120;
+        drSiparisler = cmdSiparisler.ExecuteReader();
+
+        while (drSiparisler.Read())
+        {
+            lblSiparisNo.Text += drSiparisler["STK002_EvrakSeriNo"].ToString() + " / ";
+            lblSiparisNo.ForeColor = Color.LightGoldenrodYellow;
+            lblSiparisNo.Font.Bold = true;
+        }
+
+        drSiparisler.Dispose();
+        drSiparisler.Close();
+    }
+
+    private void CariHesapUnvanlari(string EvrakNumarasi)
+    {
+        if (DbConnCariler.State == ConnectionState.Closed)
+            DbConnCariler.Open();
+
+        string sorgu = "SELECT CAR002_Unvan1+CAR002_Unvan2 AS Unvan FROM CAR002 AS CR " +
+                        "INNER JOIN STK002 AS S ON CR.CAR002_HesapKodu=S.STK002_CariHesapKodu " +
+                        "WHERE S.STK002_MalSeriNo='" + EvrakNumarasi + "' " +
+                        "ORDER BY CAR002_Row_ID DESC";
+
+        cmdCariler = new SqlCommand(sorgu, DbConnCariler);
+        cmdCariler.CommandTimeout = 120;
+
+        drCariler = cmdCariler.ExecuteReader();
+
+        while (drCariler.Read())
+        {
+            lblCariHesap.Text += drCariler["Unvan"].ToString() + " / ";
+            lblCariHesap.ForeColor = Color.Lavender;
+            lblCariHesap.Font.Bold = true;
+        }
+
+        drCariler.Dispose();
+        drCariler.Close();
+    }
+
+    private void BirimFiyatveMiktar(string EvrakNumarasi)
+    {
+        if (DbConnFiyatlar.State == ConnectionState.Closed)
+            DbConnFiyatlar.Open();
+
+        string sorgu = "SELECT STK002_BirimFiyati,CONVERT(NUMERIC(18,2),STK002_Miktari) AS STK002_Miktari FROM STK002 " +
+                      "WHERE STK002_MalSeriNo='" + EvrakNumarasi.ToString() + "' " +
+                      "ORDER BY STK002_Row_ID DESC";
+
+        cmdFiyatlar = new SqlCommand(sorgu, DbConnFiyatlar);
+        cmdFiyatlar.CommandTimeout = 120;
+
+        drFiyatlar = cmdFiyatlar.ExecuteReader();
+
+        while (drFiyatlar.Read())
+        {
+            lblBirimFiyat.Text += drFiyatlar["STK002_BirimFiyati"].ToString() + " TL / ";
+            lblBirimFiyat.ForeColor = Color.DarkRed;
+            lblBirimFiyat.Font.Bold = true;
+
+            lblMiktar.Text += drFiyatlar["STK002_Miktari"].ToString() + " / ";
+            lblMiktar.ForeColor = Color.Black;
+            lblMiktar.Font.Bold = true;
+
+        }
+
+        drFiyatlar.Dispose();
+        drFiyatlar.Close();
+    }
+
+    protected void lnkKapat_Click(object sender, EventArgs e)
+    {
+        ClientScript.RegisterStartupScript(typeof(Page), "closePage", "window.close();", true);
+    }
+
+    private bool SiparisButonDurumu(string KullaniciKodu)
+    {
+        if (DbConnUser.State == ConnectionState.Closed)
+            DbConnUser.Open();
+
+        string sorgu = "SELECT Siparis FROM Kullanicilar " +
+                    "WHERE KullaniciKodu='" + KullaniciKodu.ToString() + "'";
+        cmd = new SqlCommand(sorgu, DbConnUser);
+        cmd.CommandTimeout = 120;
+        return (bool)cmd.ExecuteScalar();
+    }
+
+    private bool SatinAlmaButonDurumu(string KullaniciKodu)
+    {
+        if (DbConnUser.State == ConnectionState.Closed)
+            DbConnUser.Open();
+
+        string sorgu = "SELECT SatinAlma FROM Kullanicilar " +
+                       "WHERE KullaniciKodu='" + KullaniciKodu.ToString() + "'";
+        cmd = new SqlCommand(sorgu, DbConnUser);
+        cmd.CommandTimeout = 120;
+        return (bool)cmd.ExecuteScalar();
+    }
+
+    private int OnayCountSearch(string KullaniciKodu, int Yetki, string DepartmanKodu, int TalepID)
+    {
+        if (DbConnUser.State == ConnectionState.Closed)
+            DbConnUser.Open();
+
+        string EkSorgu = "";
+
+        if (SatinAlmaButonu == true && SiparisButonu == false)
+        {
+            EkSorgu = "WHERE T.TalepID=" + TalepID + " AND T.OnaylayanYetki=" + Yetki + " AND (T.OnayDurumu = 3) AND " +
+                      "T.GidecekDepartman='" + DepartmanKodu + "') AS TBL";
+        }
+        if (SatinAlmaButonu == false && SiparisButonu == true)
+        {
+            EkSorgu = "WHERE T.TalepID=" + TalepID + " AND T.OnaylayanYetki=" + Yetki + " AND (T.OnayDurumu = 5) AND " +
+                      "T.GidecekDepartman='" + DepartmanKodu + "') AS TBL";
+        }
+        if (SatinAlmaButonu == false && SiparisButonu == false)
+        {
+            EkSorgu = "WHERE T.TalepID=" + TalepID + " AND T.OnaylayanYetki=" + Yetki + " AND (T.OnayDurumu NOT IN(9,10,11,12)) AND " +
+                      "T.DepartmanKodu='" + DepartmanKodu + "' " +
+                      "AND (CASE " +
+                      "WHEN T.OnaylayanYetki = " + Yetki + "  AND (T.OnayDurumu IN(10,11,12)) THEN 1  " +
+                      "ELSE 0 END)=0) AS TBL";
+        }
+
+        string OnayCountSorgusu = "SELECT COUNT(*) AS OnayCount FROM(SELECT T.TalepID,T.EvrakNoTarih+T.EvrakNo AS EvrakNo, " +
+                                "(CASE " +
+                                "WHEN T.Kaydeden = '" + KullaniciKodu + "' THEN  " +
+                                "((CASE T.ilkIslem " +
+                                "WHEN 1 THEN 0 " +
+                                "WHEN 0 THEN 1 END)) ELSE 0 END) AS ilkIslem, " +
+                                "(CASE " +
+                                "WHEN T.OnaylayanYetki = " + Yetki + " THEN 1  " +
+                                "ELSE 0 END) AS OnayDurum  " +
+                                "FROM Tlp AS T " +
+                                "INNER JOIN Kullanicilar AS K ON T.Kaydeden=K.KullaniciKodu  " +
+                                 EkSorgu;
+
+        cmd = new SqlCommand(OnayCountSorgusu, DbConnUser);
+        cmd.CommandTimeout = 120;
+        return (int)cmd.ExecuteScalar();
+    }
+
+    private void BaglantilariKapat()
+    {
+        //DbConnUser.Dispose();
+        DbConnUser.Close();
+        //DbConnSiparisler.Dispose();
+        DbConnSiparisler.Close();
+        //DbConnCariler.Dispose();
+        DbConnCariler.Close();
+        //DbConnFiyatlar.Dispose();
+        DbConnFiyatlar.Close();
+
+        //cmdSiparisler.Dispose();
+        //cmdCariler.Dispose();
+        //cmdFiyatlar.Dispose();
+
+        //dr.Dispose();
+        //drSiparisler.Dispose();
+        //drCariler.Dispose();
+        //drFiyatlar.Dispose();
+
+        //dr.Close();
+        //drSiparisler.Close();
+        //drCariler.Close();
+        //drFiyatlar.Close();
+    }
+
+    protected void btnReddet_Click(object sender, EventArgs e)
+    {
+        if (DbConnUser.State == ConnectionState.Closed)
+            DbConnUser.Open();
+
+        int TalepID = Convert.ToInt32(Request.QueryString["TalepID"].ToString());
+        TalepEkleyen = TalepAcanBul(TalepID);
+        TalepAcanYetkisi = TalepAcanYetkiBul(TalepEkleyen);
+        TalepAcanDepartmanKodu = TalepAcanDepartmanKoduBul(TalepEkleyen);
+        string RedNedeni = drpRedNedenleri.SelectedItem.ToString();
+        string Yetkimiz = Session["Yetki"].ToString();
+        string OnayDurumu = OnayDurumBelirliyoruz(Convert.ToInt32(Yetkimiz));
+
+        string OnayliSorgu = "UPDATE Tlp SET " +
+                 "OnayDurumu='" + OnayDurumu + "', " +
+                 "Onaylayan='" + TalepEkleyen.ToString() + "', " +
+                 "RedNedeni='" + RedNedeni.ToString() + "', " +
+                 "OnayMiktar='0', " +
+                 "idariKisim=0, " +
+                 "TeknikKisim=0, " +
+                 "ihtiyacPusulasi=0, " +
+                 "StokCikisHareketi=0, " +
+                 "StokCikisFormu=0, " +
+                 "Fax=0 ," +
+                 "ilkIslem=0 " +
+                 "WHERE TalepID=" + TalepID + "";
+
+        cmd = new SqlCommand(OnayliSorgu, DbConnUser);
+        cmd.CommandTimeout = 120;
+        cmd.ExecuteNonQuery();
+
+        //string AkisYapilandir = "UPDATE TalepAkisi SET Onay='True' WHERE TalepID=" + TalepID + "";
+
+        //cmdTalepAkisYapilandir = new SqlCommand(AkisYapilandir, DbConnTalepAkisYapilandir);
+        //cmdTalepAkisYapilandir.CommandTimeout = 120;
+        //cmdTalepAkisYapilandir.ExecuteNonQuery();
+
+        //string TalepAkisDuzenle = "INSERT INTO TalepAkisi(TalepID, OnaylayanYetki, EkleyenYetki, TalepDurumu, Departman, Onay, OnayTarih) " +
+        //                     "VALUES (" + TalepID + "," + TalepAcanYetkisi + ", " + TalepAcanYetkisi + ", " +
+        //                     "'" + TalepAcanDepartmanKodu.ToString() + "','" + TalepAcanDepartmanKodu.ToString() + "', 'False', GETDATE())";
+        //cmd = new SqlCommand(TalepAkisDuzenle, DbConnUser);
+        //cmd.CommandTimeout = 120;
+        //cmd.ExecuteNonQuery();
+    }
+
+    private string TalepAcanBul(int TalepID)
+    {
+        if (DbConnTalepAcan.State == ConnectionState.Closed)
+            DbConnTalepAcan.Open();
+
+        string Sorgu = "SELECT Kaydeden FROM Tlp " +
+                        "WHERE TalepID=" + TalepID + "";
+
+        cmdTalepAcan = new SqlCommand(Sorgu, DbConnTalepAcan);
+        cmdTalepAcan.CommandTimeout = 120;
+        return (string)cmdTalepAcan.ExecuteScalar();
+    }
+
+    private int TalepAcanYetkiBul(string KullaniciKodu)
+    {
+        if (DbConnTalepAcanYetki.State == ConnectionState.Closed)
+            DbConnTalepAcanYetki.Open();
+
+        string sorgu = "SELECT Yetki FROM Kullanicilar " +
+                        "WHERE KullaniciKodu='" + KullaniciKodu.ToString() + "'";
+        cmdTalepAcanYetki = new SqlCommand(sorgu, DbConnTalepAcanYetki);
+        cmdTalepAcanYetki.CommandTimeout = 120;
+        return (int)Convert.ToInt32(cmdTalepAcanYetki.ExecuteScalar());
+    }
+
+    private string TalepAcanDepartmanKoduBul(string KullaniciKodu)
+    {
+        if (DbConnTalepAcanDepartman.State == ConnectionState.Closed)
+            DbConnTalepAcanDepartman.Open();
+
+        string sorgu = "SELECT D.DepartmanKodu FROM Kullanicilar AS K " +
+                    "INNER JOIN Departmanlar AS D ON K.DepartmanID=D.DepartmanID " +
+                    "WHERE KullaniciKodu='SFBIM04'";
+
+        cmdTalepAcanDepartmanKodu = new SqlCommand(sorgu, DbConnTalepAcanDepartman);
+        cmdTalepAcanDepartmanKodu.CommandTimeout = 120;
+        return (string)cmdTalepAcanDepartmanKodu.ExecuteScalar();
+    }
+
+    private string GidecekDepartmanBul(string MalKodu)
+    {
+        if (DbConnUser.State == ConnectionState.Closed)
+            DbConnUser.Open();
+
+        string sorgu = "SELECT dbo.fn_GidecekDepartmanBul('" + MalKodu + "') AS GidecekDepartman";
+
+        cmd = new SqlCommand(sorgu, DbConnUser);
+        cmd.CommandTimeout = 120;
+        return (string)cmd.ExecuteScalar();
+    }
+
+    private string OnayDurumBelirliyoruz(int YetkiDurumu)
+    {
+        switch (YetkiDurumu)
+        {
+            case 2: sonuc = "9"; break;
+            case 3: sonuc = "10"; break;
+            case 4: sonuc = "12"; break;
+            case 5: sonuc = "11"; break;
+        }
+        string Yeniislem = sonuc;
+        return Yeniislem;
+    }
+
+    protected void btnFax_Click(object sender, EventArgs e)
+    {
+        if (DbConnUser.State == ConnectionState.Closed)
+            DbConnUser.Open();
+
+        string EvrakNo = lblihtiyacNo.Text;
+
+        string sorgu = "UPDATE Tlp SET Fax=0 " +
+                        "WHERE EvrakNoTarih+EvrakNo='" + EvrakNo + "'";
+
+        cmd = new SqlCommand(sorgu, DbConnUser);
+        cmd.ExecuteNonQuery();
+
+        Alert.Show("İşlem Başarılı");
+    }
+
+    protected void btnidari_Click(object sender, EventArgs e)
+    {
+        if (DbConnUser.State == ConnectionState.Closed)
+            DbConnUser.Open();
+
+        string EvrakNo = lblihtiyacNo.Text;
+
+        string sorgu = "UPDATE Tlp SET idariKisim=0 " +
+                        "WHERE EvrakNoTarih+EvrakNo='" + EvrakNo + "'";
+
+        cmd = new SqlCommand(sorgu, DbConnUser);
+        cmd.ExecuteNonQuery();
+
+        Alert.Show("İşlem Başarılı");
+    }
+
+    protected void btnTeknik_Click(object sender, EventArgs e)
+    {
+        if (DbConnUser.State == ConnectionState.Closed)
+            DbConnUser.Open();
+
+        string EvrakNo = lblihtiyacNo.Text;
+
+        string sorgu = "UPDATE Tlp SET TeknikKisim=0 " +
+                        "WHERE EvrakNoTarih+EvrakNo='" + EvrakNo + "'";
+
+        cmd = new SqlCommand(sorgu, DbConnUser);
+        cmd.ExecuteNonQuery();
+
+        Alert.Show("İşlem Başarılı");
+    }
+
+    protected void btnSiparis_Click(object sender, EventArgs e)
+    {
+        if (DbConnUser.State == ConnectionState.Closed)
+            DbConnUser.Open();
+
+        string EvrakNo = lblihtiyacNo.Text;
+
+        string sorgu = "UPDATE Tlp SET SiparisFormu=0 " +
+                        "WHERE EvrakNoTarih+EvrakNo='" + EvrakNo + "'";
+
+        cmd = new SqlCommand(sorgu, DbConnUser);
+        cmd.ExecuteNonQuery();
+
+        Alert.Show("İşlem Başarılı");
+    }
+
+    protected void btnihtiyac_Click(object sender, EventArgs e)
+    {
+        if (DbConnUser.State == ConnectionState.Closed)
+            DbConnUser.Open();
+
+        string EvrakNo = lblihtiyacNo.Text;
+
+        string sorgu = "UPDATE Tlp SET ihtiyacPusulasi=0 " +
+                        "WHERE EvrakNoTarih+EvrakNo='" + EvrakNo + "'";
+
+        cmd = new SqlCommand(sorgu, DbConnUser);
+        cmd.ExecuteNonQuery();
+
+        Alert.Show("İşlem Başarılı");
+    }
+
+    protected void btnStokCikis_Click(object sender, EventArgs e)
+    {
+        if (DbConnUser.State == ConnectionState.Closed)
+            DbConnUser.Open();
+
+        string EvrakNo = lblihtiyacNo.Text;
+
+        string sorgu = "UPDATE Tlp SET StokCikisFormu=0 " +
+                        "WHERE EvrakNoTarih+EvrakNo='" + EvrakNo + "'";
+
+        cmd = new SqlCommand(sorgu, DbConnUser);
+        cmd.ExecuteNonQuery();
+
+        Alert.Show("İşlem Başarılı");
+    }
+
+    private bool TalepSilmeDurumu(int TalepID, string Kaydeden)
+    {
+        if (DbConnUser.State == ConnectionState.Closed)
+            DbConnUser.Open();
+
+        string sorgu = "SELECT (CASE WHEN Kaydeden = '" + Kaydeden + "' THEN " +
+                       "((CASE  ilkIslem WHEN 1 THEN 0 " +
+                       "WHEN 0 THEN 1 END)) ELSE 0 END) AS ilkIslem " +
+                       "FROM Tlp " +
+                       "WHERE TalepID=" + TalepID + "";
+
+        cmd = new SqlCommand(sorgu, DbConnUser);
+
+        return (bool)Convert.ToBoolean(cmd.ExecuteScalar());
+    }
+
+    public void OnConfirm(object sender, EventArgs e)
+    {
+        string confirmValue = Request.Form["confirm_value"];
+        if (confirmValue == "Evet")
+        {
+            int SilID = Convert.ToInt32(Request.QueryString["TalepID"].ToString());
+
+            TalepSil(SilID);
+            Alert.Show("Talep Başarılı Bir Şekilde Silinmiştir");
+            ClientScript.RegisterStartupScript(typeof(Page), "closePage", "window.close();", true);
+        }
+        else
+        {
+            ClientScript.RegisterStartupScript(typeof(Page), "closePage", "window.close();", true);
+        }
+    }
+
+    private void TalepSil(int TalepID)
+    {
+        if (DbConnUser.State == ConnectionState.Closed)
+            DbConnUser.Open();
+
+        string sorgu = "DELETE FROM Tlp WHERE TalepID=" + TalepID + "";
+
+        cmd = new SqlCommand(sorgu, DbConnUser);
+        cmd.CommandTimeout = 120;
+        cmd.ExecuteNonQuery();
+    }
+
+    private string CikisHareketNoBul(string EvrakNo)
+    {
+        if (DbConnUser.State == ConnectionState.Closed)
+            DbConnUser.Open();
+
+        string sorgu = "SELECT CikisHareketNo FROM Tlp " +
+                    "WHERE EvrakNoTarih+EvrakNo='" + EvrakNo.ToString() + "'";
+
+        SqlCommand cmdx = new SqlCommand(sorgu, DbConnUser);
+
+        return (string)cmdx.ExecuteScalar();
+    }
+
+    private void TalepKapat(int TalepID)
+    {
+        if (DbConnUser.State == ConnectionState.Closed)
+            DbConnUser.Open();
+
+        string sorgu = "UPDATE Tlp SET " +
+                       "OnayDurumu=13, " +
+                       "DegisiklikNedeni='Temin Edilemedi' " +
+                       "WHERE TalepID=" + TalepID + "";
+
+        cmd = new SqlCommand(sorgu, DbConnUser);
+        cmd.CommandTimeout = 120;
+        cmd.ExecuteNonQuery();
+    }
+
+    protected void btnTalepKapat_Click(object sender, EventArgs e)
+    {
+        int TalepKapatID = Convert.ToInt32(Request.QueryString["TalepID"].ToString());
+
+        TalepKapat(TalepKapatID);
+        Alert.Show("Talep Başarılı Bir Şekilde Kapatılmıştır.");
+        ClientScript.RegisterStartupScript(typeof(Page), "closePage", "window.close();", true);
+    }
+}

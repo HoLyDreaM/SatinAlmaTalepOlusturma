@@ -1,0 +1,182 @@
+﻿<%@ Master Language="C#" AutoEventWireup="true" CodeFile="Anasayfa.master.cs" Inherits="Anasayfa" %>
+
+<%@ Register assembly="DevExpress.Web.v12.1, Version=12.1.6.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" namespace="DevExpress.Web.ASPxMenu" tagprefix="dx" %>
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head id="Head1" runat="server">
+    <title>Sifaş Web Satın Alma Modülü</title>
+    <link href="Css/StyleSheet.css" type="text/css" rel="stylesheet" />
+    <link href="Css/jquery-ui.css" rel="stylesheet" type="text/css" media="all" /> 
+    <link href="Css/Popup.css" rel="stylesheet" type="text/css" media="all" />
+    <script type="text/javascript" src="Scripts/jquery.min.js"></script>
+
+    <script type="text/javascript" src="Scripts/script.js"></script>
+    <link rel="shortcut icon" href="~/images/sifaslogo.jpg" />
+    <asp:ContentPlaceHolder id="head" runat="server">
+    </asp:ContentPlaceHolder>
+</head>
+    <script type="text/javascript">
+        function MM_openBrWindow(theURL, winName, features) { //v2.0
+            window.open(theURL, winName, features);
+        }
+        // <![CDATA[
+        function KullaniciEditShow() {
+            popupKullanicilar.Show();
+        }
+        function KullaniciEkleShow() {
+            popupKullaniciEkle.Show();
+        }
+        function TalepEditShow() {
+            popupTalepDuzenle.Show();
+        }
+        // ]]>
+    </script>
+    <script type="text/javascript">
+        function check_uncheck(Val) {
+            var ValChecked = Val.checked;
+            var ValId = Val.id;
+            var frm = document.forms[0];
+            for (i = 0; i < frm.length; i++) {
+                if (this != null) {
+                    if (ValId.indexOf('CheckAll') != -1) {
+                        if (ValChecked)
+                            frm.elements.checked = true;
+                        else
+                            frm.elements.checked = false;
+                    }
+                    else if (ValId.indexOf('deleteRec') != -1) {
+                        if (frm.elements.checked == false)
+                            frm.elements[1].checked = false;
+                    }
+                } // if
+            } // for
+        }
+    </script>
+    <script type="text/javascript">
+        $(function () {
+            $('input:text:first').focus();
+            $('input:text').bind('keydown', function (e) {
+                var key = (e.keyCode ? e.keyCode : e.charCode);
+                if (key == 13) {
+                    e.preventDefault();
+                    var sonrakitext = $('input:text').index(this) + 1;
+                    $(":input:text:eq(" + sonrakitext + ")").focus();
+                }
+            });
+        });
+
+    </script>
+    <script type="text/javascript">
+        function ProcessKeyPress(s, evt) {
+            var charCode = (evt.htmlEvent.which) ? evt.htmlEvent.which : event.keyCode
+            if (charCode > 31 && (charCode < 48 || charCode > 57))
+                _aspxPreventEvent(evt.htmlEvent);
+
+        }
+</script>
+    <script type="text/javascript">
+<!--
+    function MM_openBrWindow(theURL, winName, features) { //v2.0
+        window.open(theURL, winName, features);
+    }
+    //-->
+</script>
+<body>
+    <form id="form1" runat="server">
+    <div> 
+<div id="Page">
+  <div id="ust">
+    <div id="logo"></div>
+    <div id="welcome" style="margin-right:200px; margin-top:20px;">Hoşgeldiniz Sayın <span class="Karsilama" id="kullaniciAdi" runat="server">Kullanıcı Adı Yazacak</span><br />
+    <span style="color:#333333;">Sisteme Son Giriş Tarihiniz : </span> <span id="Tarih" runat="server">Sisteme Son Giriş Tarihiniz</span><br />
+    <div><a runat="server" id="Bilgiler" class="CikisLinki">Bilgileri Düzenle</a>  |   <a href="<%= Page.ResolveUrl("~")%>Logout.Aspx" class="CikisLinki">Çıkış</a></div>
+    </div>
+    <div id="clear">
+    </div>
+</div><center>     
+    <dx:ASPxMenu ID="DevMenu" runat="server" Width="80%" Font-Names="Calibri" Font-Size="14px" Theme="Office2010Silver" EnableTheming="True">
+        <Items>
+            <dx:MenuItem NavigateUrl="~/Default.aspx" Text="Anasayfa">
+                <Image Height="16px" Url="~/iconlar/Anasayfa.png" Width="16px">
+                </Image>
+            </dx:MenuItem>
+            <dx:MenuItem Text="Stok Kartı Sorgulama" NavigateUrl="~/StokSorgulama.aspx">
+                <Image Height="16px" Url="~/iconlar/StokKartiArama.png" Width="16px">
+                </Image>
+            </dx:MenuItem>
+            <dx:MenuItem Text="İhtiyaç Arama" NavigateUrl="~/ihtiyacArama.aspx">
+                <Image Height="16px" Url="~/iconlar/ihtiyacArama.png" Width="16px">
+                </Image>
+            </dx:MenuItem>
+            <dx:MenuItem Text="İhtiyac Açma" NavigateUrl="~/TalepFormu.aspx">
+                <Image Height="16px" Url="~/iconlar/Talepler.png" Width="16px">
+                </Image>
+            </dx:MenuItem>
+            <dx:MenuItem Text="Formlar">
+                <Items>
+                    <dx:MenuItem Text="İdari Kısım" NavigateUrl="~/Formlar/idariRaporlar.aspx">
+                        <Image Height="16px" Url="~/iconlar/idariKisim.png" Width="16px">
+                        </Image>
+                    </dx:MenuItem>
+                    <dx:MenuItem Text="Teknik Kısım" NavigateUrl="~/Formlar/TeknikRaporlar.aspx">
+                        <Image Height="16px" Url="~/iconlar/TeknikKisim.png" Width="16px">
+                        </Image>
+                    </dx:MenuItem>
+                    <dx:MenuItem Text="Teklif Formu" NavigateUrl="~/Formlar/TeklifFormlari.aspx">
+                        <Image Height="16px" Url="~/iconlar/TeklifFormu.png" Width="16px">
+                        </Image>
+                    </dx:MenuItem>
+                    <dx:MenuItem Text="İhtiyaç Pusulası" NavigateUrl="~/Formlar/ihtiyacPusulalari.aspx">
+                        <Image Height="16px" Url="~/iconlar/ihtiyacPusulasi.png" Width="16px">
+                        </Image>
+                    </dx:MenuItem>
+                    <dx:MenuItem Text="Stok Çıkış Formu" NavigateUrl="~/Formlar/StokCikisFormlari.aspx">
+                        <Image Height="16px" Url="~/iconlar/StokCikisFormu.png" Width="16px">
+                        </Image>
+                    </dx:MenuItem>
+                    <dx:MenuItem Text="Stok Çıkış Hareketi" NavigateUrl="~/Formlar/StokCikisHareketleri.aspx">
+                        <Image Height="16px" Url="~/iconlar/StokCikisHareketi.png" Width="16px">
+                        </Image>
+                    </dx:MenuItem>
+                    <dx:MenuItem NavigateUrl="~/Formlar/SiparisFormlari.aspx" Text="Sipariş Formu">
+                        <Image Height="16px" Url="~/iconlar/SiparisFormu.png" Width="16px">
+                        </Image>
+                    </dx:MenuItem>
+                    <dx:MenuItem NavigateUrl="~/StokTanimlari.aspx" Text="Stok Tanımları">
+                        <Image Height="16px" Url="~/iconlar/StokKartiArama.png" Width="16px">
+                        </Image>
+                    </dx:MenuItem>
+                    <dx:MenuItem NavigateUrl="~/KopsStokDurumu.aspx" Text="Kops Durum Raporu">
+                        <Image Height="16px" Url="~/iconlar/KopsDurumRaporu.png" Width="16px">
+                        </Image>
+                    </dx:MenuItem>
+                </Items>
+                <Image Height="16px" Url="~/iconlar/Formlar.png" Width="16px">
+                </Image>
+            </dx:MenuItem>
+            <dx:MenuItem Text="Tanımlar">
+                <Items>
+                    <dx:MenuItem NavigateUrl="~/Kullanicilar.aspx" Text="Kullanıcılar">
+                        <Image Height="16px" Url="~/iconlar/Kullanicilar.png" Width="16px">
+                        </Image>
+                    </dx:MenuItem>
+                    <dx:MenuItem NavigateUrl="~/Tanimlamalar.aspx"  Text="Tanımlamalar">
+                        <Image Height="16px" Url="~/iconlar/Tanimlamalar.png" Width="16px">
+                        </Image>
+                    </dx:MenuItem>
+                </Items>
+                <Image Height="16px" Url="~/iconlar/Tanimlamalar.png" Width="16px">
+                </Image>
+            </dx:MenuItem>
+        </Items>
+    </dx:ASPxMenu>
+</center>  </div>    
+        <asp:ContentPlaceHolder id="ContentPlaceHolder1" runat="server">
+
+        </asp:ContentPlaceHolder>
+    </div>
+    </form>
+</body>
+</html>

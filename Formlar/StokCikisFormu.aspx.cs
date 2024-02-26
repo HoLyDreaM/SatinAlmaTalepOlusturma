@@ -1,0 +1,157 @@
+﻿using System;
+using System.Linq;
+using System.Web;
+using System.Web.Services;
+using System.Web.UI;
+using System.Web.UI.HtmlControls;
+using System.Web.UI.WebControls;
+using System.Data;
+using System.Data.SqlClient;
+using System.Configuration;
+using System.IO;
+using DevExpress.Web;
+using System.Drawing;
+using System.Collections;
+using System.Collections.Generic;
+
+public partial class Formlar_StokCikisFormu : System.Web.UI.Page
+{
+
+    #region Bağlantı Ayarları
+
+    SqlConnection DbConnUser = new SqlConnection(ConfigurationManager.ConnectionStrings["DbConnUser"].ToString());
+    SqlConnection DbConnLink = new SqlConnection(ConfigurationManager.ConnectionStrings["DbConnLink"].ToString());
+    SqlCommand cmd;
+    SqlDataReader dr;
+    int TalepID;
+    string SiparisNumarasi, ihtiyacNumarasi, TalepIDx, DepKod;
+    string[] TalepNumaralari;
+    string[] DepoKods;
+
+    #endregion
+
+    protected void Page_Load(object sender, EventArgs e)
+    {
+        if (Session["Giris"] != "Evet")
+        {
+            Response.Redirect("/Login.Aspx");
+        }
+        else
+        {
+            StokCikisGetir();
+        }
+    }
+
+    private void StokCikisGetir()
+    {
+        string TalepIDKontrol = Session["StokCikisTalepIDleri"] as string;
+
+        if (string.IsNullOrEmpty(TalepIDKontrol))
+        {
+            Alert.Show("Yazdırılacak Hareket Bulunamadı.");
+            ClientScript.RegisterStartupScript(typeof(Page), "closePage", "window.close();", true);
+        }
+        else
+        {
+            TalepIDx = Session["StokCikisTalepIDleri"].ToString();
+            TalepNumaralari = TalepIDx.Split(',');
+            for (int i = 0; i < TalepNumaralari.Length - 1; i++)
+            {
+                TalepID = Convert.ToInt32(TalepNumaralari[i].ToString());
+                StokCikisTalepIDBul(TalepID);
+            }
+
+            BaglantilariKapat();
+        }
+
+    }
+
+    protected void imgYazdir_Click(object sender, ImageClickEventArgs e)
+    {
+        if (DbConnUser.State == ConnectionState.Closed)
+            DbConnUser.Open();
+
+        TalepIDx = Session["StokCikisTalepIDleri"].ToString();
+        TalepNumaralari = TalepIDx.Split(',');
+        for (int i = 0; i < TalepNumaralari.Length - 1; i++)
+        {
+
+            string Sorgu = "UPDATE Tlp SET " +
+                           "StokCikisFormu=1 " +
+                           "WHERE TalepID=" + TalepNumaralari[i].ToString() + "";
+            cmd = new SqlCommand(Sorgu, DbConnUser);
+            cmd.CommandTimeout = 120;
+            cmd.ExecuteNonQuery();
+        }
+        BaglantilariKapat();
+    }
+
+    private void StokCikisTalepIDBul(int TalepID)
+    {
+        if (DbConnUser.State == ConnectionState.Closed)
+            DbConnUser.Open();
+
+        string sorgu = "SELECT T.EvrakNoTarih+T.EvrakNo AS ihtiyacNo,CONVERT(VARCHAR(10),(CONVERT(DATETIME,T.Tarih-2)),104) AS Tarih, " +
+                    "T.DepartmanAdi + '/' + T.AdSoyad AS KullaniciAdi,T.MalKodu,T.MalAdi,T.Miktar, " +
+                    "T.MasrafMerkeziAdi,T.CikisHareketNo,T.CikisHareketDepo " +
+                    "FROM Tlp AS T " +
+                    "WHERE T.TalepID=" + TalepID + "";
+
+        cmd = new SqlCommand(sorgu, DbConnUser);
+        cmd.CommandTimeout = 120;
+        dr = cmd.ExecuteReader(CommandBehavior.CloseConnection);
+
+        while (dr.Read())
+        {
+            Literal Lt = new Literal();
+            Lt.Text = "<tr> " +
+                      "<td align=\"left\" style=\"font-family:Calibri; font-size:12px; border:1px solid Black;\">" + dr["MalKodu"].ToString() + "</td> " +
+                      "<td align=\"left\" style=\"font-family:Calibri; font-size:12px; border:1px solid Black;\">" + dr["MalAdi"].ToString() + "</td>" +
+                      "<td style=\"font-family:Calibri; font-size:12px; border:1px solid Black;\">" + dr["Miktar"].ToString().Replace('.', ',') + "</td> " +
+                      "<td style=\"font-family:Calibri; font-size:12px; border:1px solid Black;\">" + dr["ihtiyacNo"].ToString() + "</td>" +
+                      "<td align=\"center\" style=\"font-family:Calibri; font-size:12px; border:1px solid Black;\">" + dr["MasrafMerkeziAdi"].ToString() + "</td>" +
+                      "</tr>";
+            panelCikisFormu.Controls.Add(Lt);
+            lblDepartman.Text = dr["KullaniciAdi"].ToString();
+            lblTarih.Text = DateTime.Now.ToString("dd.MM.yyyy");
+            //lblStokAdi.Text = 
+            //lblStokKodu.Text = dr["MalKodu"].ToString();
+            //lblMasrafYeri.Text = dr["MasrafMerkeziAdi"].ToString();
+            //lblMiktar.Text = dr["Miktar"].ToString();
+            //lblihtiyacNo.Text = dr["ihtiyacNo"].ToString();
+            lblHareketNo.Text += dr["CikisHareketNo"].ToString() + "/ ";
+            DepKod = dr["CikisHareketDepo"].ToString() + ",";
+            //lblDepo.Text = DepoKodu(DepKod);
+        }
+
+        dr.Dispose();
+        dr.Close();
+
+        DepoKods = DepKod.ToString().Split(',');
+
+        for (int i = 0; i < DepoKods.Length - 1; i++)
+        {
+            lblDepo.Text = DepoKodu(DepoKods[i]);
+        }
+    }
+
+    private string DepoKodu(string DepoKodu)
+    {
+        if (DbConnUser.State == ConnectionState.Closed)
+            DbConnUser.Open();
+
+        string sorgu2 = "SELECT DepartmanAdi FROM Departmanlar " +
+                        "WHERE DepartmanKodu='" + DepoKodu + "'";
+        SqlCommand cmd2 = new SqlCommand(sorgu2, DbConnUser);
+        cmd2.CommandTimeout = 120;
+        return (string)cmd2.ExecuteScalar();
+
+        cmd2.Dispose();
+    }
+
+    private void BaglantilariKapat()
+    {
+        DbConnUser.Close();
+        DbConnLink.Close();
+    }
+}

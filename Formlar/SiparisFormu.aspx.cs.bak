@@ -1,0 +1,215 @@
+﻿using System;
+using System.Linq;
+using System.Web;
+using System.Web.Services;
+using System.Web.UI;
+using System.Web.UI.HtmlControls;
+using System.Web.UI.WebControls;
+using System.Data;
+using System.Data.SqlClient;
+using System.Configuration;
+using System.Web.Services;
+using System.IO;
+using DevExpress.Web.ASPxEditors;
+using System.Drawing;
+using DevExpress.Web.ASPxGridView;
+using System.Collections;
+using System.Collections.Generic;
+
+public partial class Formlar_SiparisFormu : System.Web.UI.Page
+{
+
+    #region Bağlantı Ayarları
+
+    SqlConnection DbConnUser = new SqlConnection(ConfigurationManager.ConnectionStrings["DbConnUser"].ToString());
+    SqlConnection DbConnLink = new SqlConnection(ConfigurationManager.ConnectionStrings["DbConnLink"].ToString());
+    SqlCommand cmd, cmdCariHesap;
+    SqlDataReader dr;
+    DataSet ds;
+    SqlDataAdapter da;
+    string DepartmanKodu, ToplamID;
+    int TabloSayisi;
+    public HtmlInputCheckBox[] printer;
+    string Linkdb, SifDb, SiparisEvrakNo2, SiparisMalKodu2, SiparisMalAdi2, SiparisBirim2, SiparisMiktar2, SiparisBirimFiyat2, SiparisKdv2, SiparisTutar2;
+    string[] SiparisEvrakNo, SiparisMalKodu, SiparisMalAdi, SiparisBirim, SiparisMiktar, SiparisBirimFiyat, SiparisKdv, SiparisTutar;
+    double ToplamKdv, AraToplam, GenelToplam;
+
+    #endregion
+
+    protected void Page_Load(object sender, EventArgs e)
+    {
+        if (Session["Giris"] != "Evet")
+        {
+            Response.Redirect("/Login.Aspx");
+        }
+        else
+        {
+            lblTarih.Text = Convert.ToString(DateTime.Now.ToString("dd-MM-yyy"));
+            SiparisleriAl();
+            SirketBilgileri(lblSiparisNo.Text.ToString().Substring(0,8));
+        }
+    }
+
+    private void SirketBilgileri(string SiparisNo)
+    {
+        if (DbConnLink.State == ConnectionState.Closed)
+            DbConnLink.Open();
+
+        string Sorgu = "SELECT CAR002_Unvan1+CAR002_Unvan2 AS Unvan, " +
+                    "CAR002_Adres1 AS Adres1,CAR002_Adres2 AS Adres2,CAR002_Adres3 AS Adres3, " +
+                    "CAR002_VergiDairesi AS VergiDairesi,CAR002_VergiHesapNo AS VergiHesapNo " +
+                    "FROM CAR002 " +
+                    "WHERE CAR002_HesapKodu=(SELECT TOP(1) STK002_CariHesapKodu FROM STK002 " +
+                    "WHERE STK002_EvrakSeriNo='" + SiparisNo.ToString() + "')";
+
+        cmd = new SqlCommand(Sorgu, DbConnLink);
+        dr = cmd.ExecuteReader(CommandBehavior.CloseConnection);
+
+        if (dr.Read())
+        {
+            lblUnvan.Text = dr["Unvan"].ToString();
+            lblAdres1.Text = dr["Adres1"].ToString();
+            lblAdres2.Text = dr["Adres2"].ToString();
+            lblAdres3.Text = dr["Adres3"].ToString();
+            lblVergiDairesi.Text = dr["VergiDairesi"].ToString();
+            lblVergiNo.Text = dr["VergiHesapNo"].ToString();
+        }
+
+        dr.Dispose();
+        dr.Close();
+
+    }
+
+    private void SiparisleriAl()
+    {
+        string TalepEvrakNoKontrol = Session["SiparisEvrakNo"] as string;
+
+        if (string.IsNullOrEmpty(TalepEvrakNoKontrol))
+        {
+            Alert.Show("Yazdırılacak Teklif Bulunamadı.");
+            ClientScript.RegisterStartupScript(typeof(Page), "closePage", "window.close();", true);
+        }
+        else
+        {
+            SiparisEvrakNo2 = Session["SiparisEvrakNo"].ToString();
+            SiparisMalKodu2 = Session["SiparisMalKodu"].ToString();
+            SiparisMalAdi2 = Session["SiparisMalAdi"].ToString();
+            SiparisBirim2 = Session["SiparisBirim"].ToString();
+            SiparisMiktar2 = Session["SiparisMiktar"].ToString();
+            SiparisBirimFiyat2 = Session["SiparisBirimFiyat"].ToString();
+            SiparisKdv2 = Session["SiparisKdv"].ToString();
+            SiparisTutar2 = Session["SiparisTutar"].ToString();
+
+            SiparisEvrakNo = SiparisEvrakNo2.Split(',');
+            SiparisMalKodu = SiparisMalKodu2.Split(',');
+            SiparisMalAdi = SiparisMalAdi2.Split('}');
+            SiparisBirim = SiparisBirim2.Split(',');
+            SiparisMiktar = SiparisMiktar2.Split('/');
+            SiparisBirimFiyat = SiparisBirimFiyat2.Split('/');
+            SiparisKdv = SiparisKdv2.Split('/');
+            SiparisTutar = SiparisTutar2.Split('/');
+
+            for (int i = 0; i < SiparisEvrakNo.Length - 1; i++)
+            {
+                Literal Lt = new Literal();
+                Lt.Text = "<tr> " +
+                         "<td height=\"25\" align=\"center\" style=\"font-family:Tahoma; font-size:10px;\">" + SiparisMalKodu[i].ToString() + "</td> " +
+                         "<td align=\"left\" style=\"font-family:Tahoma; font-size:10px;\">" + SiparisMalAdi[i].ToString() + "</td> " +
+                         "<td align=\"center\" style=\"font-family:Tahoma; font-size:10px;\">" + SiparisMiktar[i].ToString().Replace('.', ',') + "</td> " +
+                         "<td align=\"center\" style=\"font-family:Tahoma; font-size:10px;\">" + SiparisBirim[i].ToString() + "</td> " +
+                         "<td align=\"center\" style=\"font-family:Tahoma; font-size:10px;\">" + SiparisBirimFiyat[i].ToString() + "</td> " +
+                         "<td align=\"center\" style=\"font-family:Tahoma; font-size:10px;\">" + SiparisTutar[i].ToString() + "</td> " +
+                         "</tr> ";
+                panelSiparisFormu.Controls.Add(Lt);
+
+                double SKdvmiz = Convert.ToDouble(SiparisKdv[i].ToString());
+                SKdvmiz.ToString("0.######");
+
+                double STutar = Convert.ToDouble(SiparisTutar[i].ToString());
+                STutar.ToString("0.##");
+                //string SKdvmiz = String.Format("{0:f2}", SiparisKdv[i].ToString()); 
+                double Kdvmiz = Math.Round(SKdvmiz, 6);
+                double Tutarimiz = Math.Round(STutar, 2);
+
+                ToplamKdv = ToplamKdv + Kdvmiz;
+                AraToplam = AraToplam + Tutarimiz;
+                GenelToplam = ToplamKdv + AraToplam;
+            }
+
+            GenelTotal.InnerText = Convert.ToString(GenelToplam);
+            araToplam.InnerText = Convert.ToString(AraToplam);
+            Kdv.InnerText = Convert.ToString(ToplamKdv);
+            lblSiparisNo.Text = Session["SiparisTalepSiparisNo"].ToString().Trim(',');
+
+        }
+    }
+
+    protected void imgKaydet_Click(object sender, ImageClickEventArgs e)
+    {
+        string TalepEvrakNoKontrol = Session["SiparisEvrakNo"] as string;
+
+        if (string.IsNullOrEmpty(TalepEvrakNoKontrol))
+        {
+            Alert.Show("Yazdırılacak Teklif Bulunamadı.");
+            ClientScript.RegisterStartupScript(typeof(Page), "closePage", "window.close();", true);
+        }
+        else
+        {
+            SiparisEvrakNo2 = Session["SiparisEvrakNo"].ToString();
+            SiparisMalKodu2 = Session["SiparisMalKodu"].ToString();
+            SiparisMalAdi2 = Session["SiparisMalAdi"].ToString();
+            SiparisBirim2 = Session["SiparisBirim"].ToString();
+            SiparisMiktar2 = Session["SiparisMiktar"].ToString();
+            SiparisBirimFiyat2 = Session["SiparisBirimFiyat"].ToString();
+            SiparisKdv2 = Session["SiparisKdv"].ToString();
+            SiparisTutar2 = Session["SiparisTutar"].ToString();
+
+            SiparisEvrakNo = SiparisEvrakNo2.Split(',');
+            SiparisMalKodu = SiparisMalKodu2.Split(',');
+            SiparisMalAdi = SiparisMalAdi2.Split('}');
+            SiparisBirim = SiparisBirim2.Split(',');
+            SiparisMiktar = SiparisMiktar2.Split('/');
+            SiparisBirimFiyat = SiparisBirimFiyat2.Split('/');
+            SiparisKdv = SiparisKdv2.Split('/');
+            SiparisTutar = SiparisTutar2.Split('/');
+        }
+
+        for (int i = 0; i < SiparisEvrakNo.Length - 1; i++)
+        {
+            if (DbConnUser.State == ConnectionState.Closed)
+                DbConnUser.Open();
+
+            string Sorgu = "UPDATE Tlp SET " +
+                       "SiparisFormu=1 " +
+                       "WHERE EvrakNoTarih+EvrakNo='" + SiparisEvrakNo[i].ToString() + "'";
+            cmd = new SqlCommand(Sorgu, DbConnUser);
+            cmd.CommandTimeout = 120;
+            cmd.ExecuteNonQuery();
+        }
+
+        BaglantilariKapat();
+
+        Panel p = new Panel();
+        Response.Clear();
+        Response.Buffer = true;
+        Response.ContentType = "application/vnd.openxmlformatsofficedocument.wordprocessingml.documet";
+        Response.AddHeader("Content-Disposition", "attachment; filename=SiparisFormu.doc");
+        Response.Buffer = true;
+        //Response.BufferOutput = true;
+        Response.ContentEncoding = System.Text.Encoding.UTF8;
+        Response.BinaryWrite(System.Text.Encoding.UTF8.GetPreamble());
+        EnableViewState = false;
+        System.IO.StringWriter writer = new System.IO.StringWriter();
+        System.Web.UI.HtmlTextWriter html = new System.Web.UI.HtmlTextWriter(writer);
+        Tablo.RenderControl(html);
+        Response.Write("<body style=\"font-family:Tahoma; font-size:8px;\">");
+        Response.Write(writer);
+        Response.End();
+    }
+
+    private void BaglantilariKapat()
+    {
+        DbConnUser.Close();
+        //DbConnLink.Close();
+    }
+}

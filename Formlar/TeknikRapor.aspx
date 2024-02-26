@@ -1,0 +1,85 @@
+﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="TeknikRapor.aspx.cs" Inherits="Formlar_TeknikRapor" %>
+<%@ Register assembly="DevExpress.Web.v21.2, Version=21.2.5.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" namespace="DevExpress.Web" tagprefix="dx" %>
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head id="Head1" runat="server">
+    <title>Teknif Rapor</title>
+    <link href="../Css/StyleSheet.css" type="text/css" rel="stylesheet" />
+    <link href="../Css/jquery-ui.css" rel="stylesheet" type="text/css" media="all" /> 
+    <link href="../Css/Popup.css" rel="stylesheet" type="text/css" media="all" />
+    <link rel="shortcut icon" href="~/images/sifaslogo.jpg" />
+</head>
+<script language="javascript" type="text/javascript">
+    function PrintEtBakalim(strid) {
+        //var prtContent = document.getElementById(strid);
+        var printContent = document.getElementById(strid);
+        var windowUrl = 'about:blank';
+        var uniqueName = new Date();
+        var windowName = 'Print' + uniqueName.getTime();
+        var printWindow = window.open(windowUrl, windowName,
+                                         'width=%100,height=auto');
+        printWindow.document.write(printContent.innerHTML);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+        printWindow.close();
+    }
+    </script>
+<body>
+    <form id="form1" runat="server">
+    <div>
+<table width="60" border="0">
+  <tr>
+<td align="left" scope="col" style="font-family:Calibri; font-size:14px; font-weight:bold;"><asp:ImageButton ID="imgYazdir" runat="server" Height="35px" ImageUrl="~/images/yazdir.png"  OnClientClick="PrintEtBakalim('Tablo')"  Width="60px" OnClick="imgYazdir_Click" /></td>
+  </tr>
+</table><div id="Tablo">
+    <style type="text/css">
+        .FormTasarim {
+            font-family:Calibri;
+            font-size:14px;
+        }
+    </style>
+     <center>
+<table width="1200" border="0">
+  <tr>
+    <td align="right" scope="col"><b style="font-family:Calibri; font-size:14px;">Tarih :</b> 
+        <asp:Label ID="lblTarih" runat="server" CssClass="FormTasarim"></asp:Label>
+&nbsp;</td></tr>
+</table>
+<table width="1200" border="0">
+  <tr>
+    <td align="center" scope="col" style="font-family:Calibri; font-size:17px; font-weight:bold;border:1px solid Black; height:30px;">TEKNİK KISIM İHTİYAÇ LİSTESİ</td>
+  </tr>
+</table>
+<table width="1200" border="0">
+  <tr>
+    <td width="100" align="center" scope="col" style="font-family:Calibri; font-size:14px; font-weight:bold;border:1px solid Black; height:30px;">İhtiyaç No</td>
+    <td width="250" align="center" scope="col" style="font-family:Calibri; font-size:14px; font-weight:bold;border:1px solid Black;">Stok Adı</td>
+    <td width="75"  align="center" scope="col" style="font-family:Calibri; font-size:14px; font-weight:bold;border:1px solid Black;">Miktar</td>
+    <td width="100" align="center" scope="col" style="font-family:Calibri; font-size:14px; font-weight:bold;border:1px solid Black;">Birim Fiyat</td>
+    <td width="125" align="center" scope="col" style="font-family:Calibri; font-size:14px; font-weight:bold;border:1px solid Black;">Toplam Tutar</td>
+    <td width="150" align="center" scope="col" style="font-family:Calibri; font-size:14px; font-weight:bold;border:1px solid Black;">Talep Eden</td>
+    <td width="150" align="center" scope="col" style="font-family:Calibri; font-size:14px; font-weight:bold;border:1px solid Black;">Kullanılacak Yer</td>
+    <td width="175" align="center" scope="col" style="font-family:Calibri; font-size:14px; font-weight:bold;border:1px solid Black;">Firma</td>
+  </tr>
+<asp:Panel ID="panelTeknikListe" runat="server"></asp:Panel>
+    </table>
+<table width="1200" border="0">
+  <tr>
+    <td width="400" align="center" scope="col" style="border:1px solid Black;font-family:Calibri; font-size:14px; font-weight:bold;">Satın Alma</td>
+    <td width="400" align="center" scope="col" style="border:1px solid Black;font-family:Calibri; font-size:14px; font-weight:bold;">Ticaret Müdür</td>
+    <td width="400" align="center" scope="col" style="border:1px solid Black;font-family:Calibri; font-size:14px; font-weight:bold;">Genel Müdür Yard.</td>
+  </tr>
+  <tr>
+    <td style="border:1px solid Black; height:80px;">&nbsp;</td>
+    <td style="border:1px solid Black;">&nbsp;</td>
+    <td style="border:1px solid Black;">&nbsp;</td>
+  </tr>
+</table></center></div>
+    </div>
+    </form>
+</body>
+</html>

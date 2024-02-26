@@ -1,0 +1,216 @@
+﻿<%@ Page Language="C#" AutoEventWireup="true" CodeFile="TalepDuzenle.aspx.cs" Inherits="TalepDuzenle" %>
+
+<%@ Register assembly="DevExpress.Web.ASPxGridView.v12.1, Version=12.1.6.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" namespace="DevExpress.Web.ASPxGridLookup" tagprefix="dx" %>
+<%@ Register assembly="DevExpress.Web.ASPxGridView.v12.1, Version=12.1.6.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" namespace="DevExpress.Web.ASPxGridView" tagprefix="dx" %>
+<%@ Register assembly="DevExpress.Web.ASPxEditors.v12.1, Version=12.1.6.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" namespace="DevExpress.Web.ASPxEditors" tagprefix="dx" %>
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head id="Head1" runat="server">
+    <title>Talep Düzenle</title>
+    <link href="../Css/StyleSheet.css" type="text/css" rel="stylesheet" />
+    <link href="../Css/jquery-ui.css" rel="stylesheet" type="text/css" media="all" /> 
+    <link href="../Css/Popup.css" rel="stylesheet" type="text/css" media="all" />
+    <script type="text/javascript" src='http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js'></script>
+
+    <script type="text/javascript" src="../Scripts/script.js"></script>
+    <link rel="shortcut icon" href="~/images/sifaslogo.jpg" />
+        <style type="text/css">
+        .auto-style1 {
+           font-family:Calibri;
+           font-size:12px;
+        }
+    </style>
+<script type="text/javascript">
+    //-------------------------------------------
+    // Function to only allow numeric data entry
+    //-------------------------------------------
+    function jsNumbers(e) {
+        var evt = (e) ? e : window.event;
+        var key = (evt.keyCode) ? evt.keyCode : evt.which;
+        if (key != null) {
+            key = parseInt(key, 10);
+            if ((key < 48 || key > 57) && (key < 96 || key > 105)) {
+                if (!jsIsUserFriendlyChar(key, "Numbers")) {
+                    return false;
+                }
+            }
+            else {
+                if (evt.shiftKey) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    //-------------------------------------------
+    // Function to only allow decimal data entry
+    //-------------------------------------------
+    function jsDecimals(e) {
+        var evt = (e) ? e : window.event;
+        var key = (evt.keyCode) ? evt.keyCode : evt.which;
+        if (key != null) {
+            key = parseInt(key, 10);
+            if ((key < 48 || key > 57) && (key < 96 || key > 188)) {
+                if (!jsIsUserFriendlyChar(key, "Decimals")) {
+                    return false;
+                }
+            }
+            else {
+                if (evt.shiftKey) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+    //------------------------------------------
+    // Function to check for user friendly keys
+    //------------------------------------------
+    function jsIsUserFriendlyChar(val, step) {
+        // Backspace, Tab, Enter, Insert, and Delete
+        if (val == 8 || val == 9 || val == 13 || val == 45 || val == 46 || val == 188) {
+            return true;
+        }
+        // Ctrl, Alt, CapsLock, Home, End, and Arrows
+        if ((val > 16 && val < 21)) {
+            return true;
+        }
+        if (step == "Decimals") {
+            if (val == 190 || val == 110) {
+                return true;
+            }
+        }
+        // The rest
+        return false;
+    }
+</script> 
+</head>
+<body>
+    <form id="form1" runat="server">
+    <div>
+        <fieldset><center>
+    <table width="404" border="0" style="border:1px solid;" cellpadding="0" cellspacing="0">
+  <tr>
+    <td width="150" scope="row" class="auto-style1" height="25">Talep No</td>
+    <td width="10" class="auto-style2">:</td>
+    <td width="240"><dx:ASPxTextBox ID="txtTalepNo" runat="server" Width="222px" ReadOnly="True" TabIndex="1"></dx:ASPxTextBox></td>
+  </tr>
+  <tr>
+    <td scope="row" class="auto-style1" height="25">Evrak No</td>
+    <td class="auto-style2">:</td>
+    <td><asp:TextBox ID="txtEvrakNo" runat="server" Font-Names="Calibri" Font-Size="12px" Width="219px" Enabled="False" TabIndex="2"></asp:TextBox></td>
+  </tr>
+  <tr>
+    <td scope="row" class="auto-style1" height="25">Tarih</td>
+    <td class="auto-style2">:</td>
+    <td><asp:TextBox ID="txtTarih" runat="server" Font-Names="Calibri" Font-Size="12px" Width="219px" Enabled="False" TabIndex="3"></asp:TextBox></td>
+  </tr>
+  <tr>
+    <td scope="row" class="auto-style1" height="25">Mal Kodu</td>
+    <td class="auto-style2">:</td>
+    <td><dx:ASPxGridLookup ID="grdLookUpMalKodu" runat="server" AutoGenerateColumns="False" 
+                                   DataSourceID="sqlMalKodlari" ClientInstanceName="grdLookUpMalKodu"  
+                                   KeyFieldName="StokKodu" MultiTextSeparator=", " TextFormatString="{0}" 
+                                   OnValueChanged="grdLookUpMalKodu_ValueChanged" AutoPostBack="True" TabIndex="4" Width="222px">
+                    <GridViewProperties>
+                    <SettingsBehavior AllowFocusedRow="True" AllowSelectSingleRowOnly="True"></SettingsBehavior>
+                    <SettingsPager>
+                    <Summary AllPagesText="Sayfa: {0} - {1} ({2} Ürünler)" Text="Sayfa: {0} of {1} ({2} Ürünler)" />
+                    </SettingsPager>
+                    <Settings ShowFilterRow="True" ShowStatusBar="Visible" ShowFooter="True" />
+                    </GridViewProperties>
+                                   <Columns>
+                                       <dx:GridViewDataTextColumn FieldName="StokKodu" Caption="Mal Kodu" VisibleIndex="0" ShowInCustomizationForm="True">
+                                       </dx:GridViewDataTextColumn>
+                                       <dx:GridViewDataTextColumn FieldName="StokAciklama" Caption="Açıklama" VisibleIndex="1" ShowInCustomizationForm="True" Settings-AllowAutoFilter="False">
+<Settings AllowAutoFilter="False"></Settings>
+                                       </dx:GridViewDataTextColumn>
+                                   </Columns>
+                               </dx:ASPxGridLookup></td>
+  </tr>
+  <tr>
+    <td scope="row" class="auto-style1" height="25">Mal Adı</td>
+    <td class="auto-style2">:</td>
+    <td><dx:ASPxGridLookup ID="grdLookUpMalAdlari" runat="server" AutoGenerateColumns="False" 
+                                   DataSourceID="sqlMalKodlari" ClientInstanceName="grdLookUpMalAdlari"  
+                                   KeyFieldName="StokAciklama" MultiTextSeparator=", " TextFormatString="{1}" AutoPostBack="True" OnValueChanged="grdLookUpMalAdlari_ValueChanged" TabIndex="5" Width="222px">
+                    <GridViewProperties>
+                    <SettingsBehavior AllowFocusedRow="True" AllowSelectSingleRowOnly="True"></SettingsBehavior>
+                    <SettingsPager>
+                    <Summary AllPagesText="Sayfa: {0} - {1} ({2} Ürünler)" Text="Sayfa: {0} of {1} ({2} Ürünler)" />
+                    </SettingsPager>
+                    <Settings ShowFilterRow="True" ShowStatusBar="Visible" />
+                    </GridViewProperties>
+                                   <Columns>
+                                       <dx:GridViewDataTextColumn FieldName="StokKodu" Caption="Mal Kodu" VisibleIndex="1" Settings-AllowAutoFilter="False">
+<Settings AllowAutoFilter="False"></Settings>
+                                       </dx:GridViewDataTextColumn>
+                                       <dx:GridViewDataTextColumn FieldName="StokAciklama" Caption="Açıklama" VisibleIndex="0" ShowInCustomizationForm="True">
+                                       </dx:GridViewDataTextColumn>
+                                   </Columns>
+                               </dx:ASPxGridLookup></td>
+  </tr>
+  <tr>
+    <td scope="row" class="auto-style1" height="25">Birim</td>
+    <td class="auto-style2">:</td>
+    <td><asp:TextBox ID="txtBirim" runat="server" Font-Names="Calibri" Font-Size="12px" Width="219px" Enabled="False" TabIndex="6"></asp:TextBox></td>
+  </tr>
+  <tr>
+    <td scope="row" class="auto-style1" height="25">Miktar</td>
+    <td class="auto-style2">:</td>
+    <td><table cellpadding="0" cellspacing="0" >
+                    <tr>
+                        <td><asp:TextBox ID="txtMiktar" runat="server" TabIndex="8" onkeydown="return jsDecimals(event);" Width="125px" DisplayFormatString="{0:n3}" Font-Names="Calibri" Font-Size="12px"></asp:TextBox></td>
+                        <td><asp:RegularExpressionValidator ID="rgx" runat="server" ControlToValidate="txtMiktar" Display="Dynamic" ErrorMessage="Lütfen sadece Rakam Giriniz.Ayraçı Virgül Olarak Kullanınız." ValidationExpression="[0-9]*\,?[0-9]*"></asp:RegularExpressionValidator></td>
+                    </tr></table>
+                </td>
+            </tr>
+  <tr>
+    <td scope="row" class="auto-style1">Açıklama</td>
+    <td class="auto-style2">:</td>
+    <td><asp:TextBox ID="txtAciklama" runat="server" Font-Names="Calibri" Font-Size="12px" Width="219px" Height="44px" TextMode="MultiLine" TabIndex="8"></asp:TextBox></td>
+  </tr>
+        <tr>
+            <td class="auto-style1" scope="row">Açıklama 2</td>
+            <td class="auto-style2">:</td>
+            <td><asp:TextBox ID="txtAciklama2" runat="server" Font-Names="Calibri" Font-Size="12px" Height="44px" TextMode="MultiLine" Width="219px" TabIndex="9"></asp:TextBox></td>
+        </tr>
+  <tr>
+            <td class="auto-style1" scope="row">Açıklama 3</td>
+            <td class="auto-style2">:</td>
+            <td><asp:TextBox ID="txtAciklama3" runat="server" Font-Names="Calibri" Font-Size="12px" Height="44px" TextMode="MultiLine" Width="219px" TabIndex="9"></asp:TextBox></td>
+        </tr>
+  <tr>
+            <td class="auto-style1" scope="row">Değişiklik Nedeni</td>
+            <td class="auto-style2">:</td>
+            <td><asp:TextBox ID="txtDegisiklikNedeni" runat="server" Font-Names="Calibri" Font-Size="12px" Height="44px" TextMode="MultiLine" Width="219px" TabIndex="9"></asp:TextBox></td>
+        </tr>
+  <tr>
+    <td scope="row" class="auto-style1" height="25">İhtiyaç Nedeni</td>
+    <td class="auto-style2">:</td>
+    <td><asp:DropDownList ID="drpihtiyacNedeni" runat="server" Font-Names="Calibri" Font-Size="12px" Width="222px" TabIndex="10"></asp:DropDownList></td>
+  </tr>
+  <tr>
+    <td scope="row" class="auto-style1" height="25">TeminYeri</td>
+    <td class="auto-style2">:</td>
+    <td><asp:DropDownList ID="drpTeminYeri" runat="server" Font-Names="Calibri" Font-Size="12px" Width="222px" TabIndex="11"></asp:DropDownList></td>
+  </tr>
+  <tr>
+    <td colspan="3" align="center" scope="row"></td>
+  </tr>
+</table><br /><table>
+    <tr>
+        <td><dx:ASPxButton ID="btnDuzenle" runat="server" Text="Talep Düzenle" TabIndex="12" OnClick="btnDuzenle_Click"></dx:ASPxButton></td>
+        <td><dx:ASPxButton ID="btnTalepOnayla" runat="server" Text="Talebi Tekrardan Gönder" TabIndex="13" OnClick="btnTalepOnayla_Click"></dx:ASPxButton></td>
+        <td><dx:ASPxButton ID="btnRedOnayla" runat="server" Text="Red Onayla" TabIndex="14" OnClick="btnRedOnayla_Click"></dx:ASPxButton></td>
+    </tr></table>
+    <asp:SqlDataSource ID="sqlMalKodlari" runat="server" ConnectionString="<%$ ConnectionStrings:DbConnUser %>" 
+        SelectCommand="SELECT [StokKodu], [StokAciklama] FROM [StokKodlari]"></asp:SqlDataSource>
+                    </center></fieldset>
+    </div>
+    </form>
+</body>
+</html>

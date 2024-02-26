@@ -1,0 +1,177 @@
+﻿using System;
+using System.Linq;
+using System.Web;
+using System.Web.Services;
+using System.Web.UI;
+using System.Web.UI.HtmlControls;
+using System.Web.UI.WebControls;
+using System.Data;
+using System.Data.SqlClient;
+using System.Configuration;
+using System.IO;
+using DevExpress.Web;
+using System.Drawing;
+using System.Collections;
+using System.Collections.Generic;
+using System.Text;
+
+public partial class Formlar_TeklifFormu : System.Web.UI.Page
+{
+
+    #region Bağlantı Ayarları
+
+    SqlConnection DbConnUser = new SqlConnection(ConfigurationManager.ConnectionStrings["DbConnUser"].ToString());
+    SqlConnection DbConnMalCinsi = new SqlConnection(ConfigurationManager.ConnectionStrings["DbConnUser"].ToString());
+    SqlConnection DbConnMalBirim = new SqlConnection(ConfigurationManager.ConnectionStrings["DbConnUser"].ToString());
+    SqlConnection DbConnMalMiktari = new SqlConnection(ConfigurationManager.ConnectionStrings["DbConnUser"].ToString());
+    SqlConnection DbConnLink = new SqlConnection(ConfigurationManager.ConnectionStrings["DbConnLink"].ToString());
+    SqlCommand cmd, cmdMalCinsi, cmdMalMiktari, cmdMalBirim;
+    SqlDataReader dr;
+    string[] TalepID;
+    string TalepIDler;
+    string MalCinsi;
+    string MalMiktarimiz, Birimlerimiz;
+
+    #endregion
+
+    protected void Page_Load(object sender, EventArgs e)
+    {
+        if (Session["Giris"] != "Evet")
+        {
+            Response.Redirect("/Login.Aspx");
+        }
+        else
+        {
+            TeklifleriAl();
+        }
+    }
+
+    private void TeklifleriAl()
+    {
+        string TalepIDKontrol = Session["TeklifTalepIDleri"] as string;
+
+        if (string.IsNullOrEmpty(TalepIDKontrol))
+        {
+            Alert.Show("Yazdırılacak Teklif Bulunamadı.");
+            ClientScript.RegisterStartupScript(typeof(Page), "closePage", "window.close();", true);
+        }
+        else
+        {
+            TalepIDler = Session["TeklifTalepIDleri"].ToString();
+            TalepID = TalepIDler.Split(',');
+
+            for (int i = 0; i < TalepID.Length; i++)
+            {
+                MalCinsi = MalinCinsi(Convert.ToInt32(TalepID[i].ToString()));
+                MalMiktarimiz = Convert.ToString(MalMiktari(Convert.ToInt32(TalepID[i].ToString())));
+                string TFMiktar = Convert.ToString(Math.Round(Convert.ToDecimal(MalMiktarimiz.ToString()), 2));
+                Birimlerimiz = MalBirimCinsi(Convert.ToInt32(TalepID[i].ToString()));
+
+                Literal Lt = new Literal();
+                Lt.Text = "<tr> " +
+                          "<td align=\"center\" style=\"font-family:Tahoma; font-size:10px;\">" + MalCinsi.ToString() + "</td> " +
+                          "<td align=\"center\" style=\"font-family:Tahoma; font-size:10px;\">" + TFMiktar.Replace('.', ',') + " " + Birimlerimiz.ToString() + "</td> " +
+                          "<td>&nbsp;</td> " +
+                          "<td>&nbsp;</td> " +
+                          "<td>&nbsp;</td> " +
+                          "<td>&nbsp;</td> " +
+                          "</tr>";
+                panelTeklifFormu.Controls.Add(Lt);
+            }
+
+            lblTarih.Text = Convert.ToString(DateTime.Now.ToString("dd-MM-yyyy"));
+            lblOdemePlani.Text = Session["TeklifOdemePlani"].ToString();
+
+            BaglantilariKapat();
+        }
+    }
+
+    protected void imgKaydet_Click(object sender, ImageClickEventArgs e)
+    {
+        if (DbConnUser.State == ConnectionState.Closed)
+            DbConnUser.Open();
+
+        TalepIDler = Session["TeklifTalepIDleri"].ToString();
+        TalepID = TalepIDler.Split(',');
+
+        for (int i = 0; i < TalepID.Length; i++)
+        {
+            string Sorgu = "UPDATE Tlp SET " +
+                       "Fax=1 " +
+                       "WHERE TalepID=" + Convert.ToInt32(TalepID[i].ToString()) + "";
+            cmd = new SqlCommand(Sorgu, DbConnUser);
+            cmd.CommandTimeout = 120;
+            cmd.ExecuteNonQuery();
+        }
+
+        BaglantilariKapat();
+
+        Panel p = new Panel();
+        Response.Clear();
+        Response.Buffer = true;
+        Response.ContentType = "application/vnd.openxmlformatsofficedocument.wordprocessingml.documet";
+        Response.AddHeader("Content-Disposition", "attachment; filename=TeklifFormu.doc");
+        Response.ContentEncoding = System.Text.Encoding.UTF8;
+        Response.Charset = "";
+        EnableViewState = false;
+        System.IO.StringWriter writer = new System.IO.StringWriter();
+        System.Web.UI.HtmlTextWriter html = new System.Web.UI.HtmlTextWriter(writer);
+        Tablo.RenderControl(html);
+        Response.Write(writer);
+        Response.End();
+
+        //Response.ClearHeaders();
+        //Response.Clear(); //this clears the Response of any headers or previous output
+        //Response.Buffer = true; //make sure that the entire output is rendered simultaneously
+        //Response.ContentType = "application/msword";
+        //Response.AddHeader("Content-Disposition", "attachment; filename=TeklifFormu.doc");
+    }
+
+    private string MalinCinsi(int TalepID)
+    {
+        if (DbConnMalCinsi.State == ConnectionState.Closed)
+            DbConnMalCinsi.Open();
+
+        string sorgu = "SELECT MalAdi AS MalCinsi FROM Tlp " +
+                    "WHERE TalepID=" + TalepID + "";
+
+        cmdMalCinsi = new SqlCommand(sorgu, DbConnMalCinsi);
+        cmdMalCinsi.CommandTimeout = 120;
+        return (string)cmdMalCinsi.ExecuteScalar();
+    }
+
+    private string MalBirimCinsi(int TalepID)
+    {
+        if (DbConnMalBirim.State == ConnectionState.Closed)
+            DbConnMalBirim.Open();
+
+        string sorgu = "SELECT Birim AS MalCinsi FROM Tlp " +
+                    "WHERE TalepID=" + TalepID + "";
+
+        cmdMalBirim = new SqlCommand(sorgu, DbConnMalBirim);
+        cmdMalBirim.CommandTimeout = 120;
+        return (string)cmdMalBirim.ExecuteScalar();
+    }
+
+    private decimal MalMiktari(int TalepID)
+    {
+        if (DbConnMalMiktari.State == ConnectionState.Closed)
+            DbConnMalMiktari.Open();
+
+        string sorgu = "SELECT Miktar FROM Tlp " +
+                    "WHERE TalepID=" + TalepID + "";
+
+        cmdMalMiktari = new SqlCommand(sorgu, DbConnMalMiktari);
+        cmdMalMiktari.CommandTimeout = 120;
+        return (decimal)cmdMalMiktari.ExecuteScalar();
+    }
+
+    private void BaglantilariKapat()
+    {
+        DbConnUser.Close();
+        DbConnLink.Close();
+        DbConnMalCinsi.Close();
+        DbConnMalMiktari.Close();
+    }
+
+}

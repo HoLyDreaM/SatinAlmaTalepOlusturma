@@ -1,0 +1,68 @@
+﻿body {
+font-family:Calibri;
+font-size:13px;
+}
+#page {
+	height: 100%;
+	width: 100%;
+	font-family: Calibri, "Calibri Light";
+	font-size: 14px;
+	font-weight: lighter;
+	text-decoration: none;
+}
+#ust {
+	font-family: Calibri, "Calibri Light";
+	font-size: 14px;
+	font-weight: lighter;
+	text-decoration: none;
+	margin-bottom:10px;
+}
+#welcome {
+	font-family: Calibri, "Calibri Light";
+	font-size: 14px;
+	font-weight: lighter;
+	color: #f45813;
+	text-decoration: none;
+	float: right;
+	/*margin-right:40%;*/
+	float:right;
+}
+#logo {
+	float: left;
+	height: 85px;
+	width: 275px;
+	background-image: url(../images/sifaslogo.jpg);
+	background-repeat: no-repeat;
+	background-position: 10px;
+    margin-left:120px;
+}
+#clear {
+	clear: both;
+}
+.CikisLinki {
+font-family:Calibri;
+font-size:14px;
+font-weight:bold;
+color: #b71717;
+text-decoration:none;
+}
+.CikisLinki:hover {
+font-family:Calibri;
+font-size:14px;
+font-weight:bold;
+color: #633e3e;
+text-decoration:none;
+}
+.CikisLinki:active {
+font-family:Calibri;
+font-size:14px;
+font-weight:bold;
+color:#b71717;
+text-decoration:none;
+}
+
+#divPrint {
+padding: 1px;
+font-family:Calibri;
+font-size: 12px;
+}

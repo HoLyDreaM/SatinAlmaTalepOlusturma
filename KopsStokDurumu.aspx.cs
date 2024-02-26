@@ -1,0 +1,312 @@
+﻿using System;
+using System.Linq;
+using System.Web;
+using System.Web.UI.WebControls;
+using System.Data;
+using System.Data.SqlClient;
+using System.Configuration;
+using System.Web.Services;
+using System.Windows.Forms;
+using System.Web.UI;
+using System.Web.UI.HtmlControls;
+using System.IO;
+using DevExpress.Web;
+using System.Drawing;
+using System.Collections;
+using System.Collections.Generic;
+using System.Text;
+
+public partial class KopsStokDurumu : System.Web.UI.Page
+{
+    class Yapi
+    {
+        public string Kod;
+        public int Sayi;
+        public bool Birlestirildi;
+    }
+
+    List<Yapi> rows = new List<Yapi>();
+
+    SqlConnection DbConnLink = new SqlConnection(ConfigurationManager.ConnectionStrings["DbConnLink"].ToString());
+    SqlConnection DbConnUser = new SqlConnection(ConfigurationManager.ConnectionStrings["DbConnUser"].ToString());
+    SqlCommand cmdLink;
+    
+    double MinimumTarih, MaximumTarih;
+    int MinTarih, MaxTarih;
+    string[] Rowindeximiz;
+    int RowSayimiz;
+    DataTable data;
+
+    string Linkdb2, SifDb, Dizimiz;
+
+    protected void Page_Load(object sender, EventArgs e)
+    {
+        if (Session["Giris"] != "Evet")
+        {
+            Response.Redirect("Login.Aspx");
+        }
+        else
+        {
+        string LinkVeritabanı = ConfigurationManager.ConnectionStrings["DbConnLinkSorgu"].ToString();
+        string SifVeritabani = ConfigurationManager.ConnectionStrings["DbConnUser"].ToString();
+
+        string[] SifDizi = new string[6];
+        string[] SifDizi2 = new string[3];
+        string[] LinkDizi = new string[6];
+        string[] LinkDizi2 = new string[3];
+        LinkDizi = LinkVeritabanı.Split('=');
+        LinkVeritabanı = LinkDizi[2].ToString();
+        LinkDizi2 = LinkVeritabanı.Split(';');
+        Linkdb2 = LinkDizi2[0].ToString();
+
+        SifDizi = SifVeritabani.Split('=');
+        SifVeritabani = SifDizi[2].ToString();
+        SifDizi2 = SifVeritabani.Split(';');
+        SifDb = SifDizi2[0].ToString();
+
+        }
+    }
+
+    protected void btnDurumRapor_Click(object sender, EventArgs e)
+    {
+        DurumRaporu();
+        //kontrol();
+    }
+
+    private void DurumRaporu()
+    {
+        if (string.IsNullOrEmpty(minTarih.Text.ToString()))
+        {
+            Alert.Show("Başlangıç Tarihi Seçmediniz.Lütfen Kontrol Edip Tekrar Deneyin.");
+            return;
+        }
+        else if (string.IsNullOrEmpty(maxTarih.Text.ToString()))
+        {
+            Alert.Show("Bitiş Tarihi Seçmediniz.Lütfen Kontrol Edip Tekrar Deneyin.");
+            return;
+        }
+
+        DateTime Min = new DateTime();
+        Min = Convert.ToDateTime(minTarih.Date);
+        string MinStr;
+        MinimumTarih = 0;
+        MinimumTarih = Min.ToOADate();
+        MinStr = MinimumTarih.ToString().Substring(0, 5);
+        MinTarih = Convert.ToInt32(MinStr);
+
+
+        DateTime Max = new DateTime();
+        Max = Convert.ToDateTime(maxTarih.Date);
+
+        string MaxStr;
+        MaximumTarih = 0;
+        MaximumTarih = Max.ToOADate();
+        MaxStr = MaximumTarih.ToString().Substring(0, 5);
+        MaxTarih = Convert.ToInt32(MaxStr);
+
+        string sorgu = @"SELECT TMP.StokKodu,TMP.StokAdi,TMP.AzamiStok,TMP.EldekiMiktar,TMP.GunlukSarfiyat,SUM(TMP.AcikSiparisMiktari) AS AcikSiparisMiktari,
+SUM(TMP.YeniSiparisMiktari) AS YeniSiparisMiktari , TMP.TalepTarihi,TMP.Birim
+FROM (SELECT STK.StokKodu AS StokKodu,STK.StokAciklama AS StokAdi,LSTK.STK004_Kod11 AS AzamiStok, 
+CONVERT(NUMERIC(18,3),((LSTK.STK004_GirisMiktari+LSTK.STK004_DevirMiktari)-LSTK.STK004_CikisMiktari)) AS EldekiMiktar, 
+(SELECT ISNULL(CONVERT(NUMERIC(18,3),SUM(STK005_Miktari)),0) AS GunlukSarfiyat 
+FROM " + Linkdb2 + @".STK005 WHERE STK005_GC=1 AND STK005_IslemTipi=12 
+AND STK005_EvrakTipi=53 AND (STK005_IslemTarihi BETWEEN " + MinTarih + " AND " + MaxTarih + @" ) 
+AND STK005_MalKodu=STK.StokKodu) AS GunlukSarfiyat, 
+(CASE WHEN Sip.STK002_SipDurumu = 0 THEN Sip.STK002_Miktari ELSE 0 END) AS AcikSiparisMiktari, 
+ISNULL(TLP.Miktar,0) AS YeniSiparisMiktari, 
+ISNULL(CONVERT(VARCHAR(10),CONVERT(DATETIME,TLP.Tarih-2),120),'') AS TalepTarihi,LSTK.STK004_Birim1 AS Birim 
+FROM " + SifDb + @".dbo.StokKodlari AS STK 
+INNER JOIN " + Linkdb2 + @".STK004 AS LSTK ON STK.StokKodu=LSTK.STK004_MalKodu 
+AND LSTK.STK004_Kod4='KOPS' 
+LEFT JOIN " + SifDb + @".dbo.Tlp AS TLP ON STK.StokKodu=TLP.MalKodu AND STK.DepartmanDurumu='KOPS' 
+AND (TLP.Tarih BETWEEN " + MinTarih + " AND " + MaxTarih + @" ) AND  Kaydeden IN('MLAMBAR','SFMAL02','SFMAL03','SFMAL04')
+LEFT JOIN " + Linkdb2 + @".STK002 AS Sip ON Sip.STK002_MalSeriNo=TLP.EvrakNoTarih+TLP.EvrakNo  
+AND (TLP.Tarih BETWEEN " + MinTarih + " AND " + MaxTarih + @" )) AS TMP
+
+GROUP BY TMP.StokKodu,TMP.StokAdi,TMP.AzamiStok,TMP.EldekiMiktar,TMP.GunlukSarfiyat,TMP.TalepTarihi,TMP.Birim";
+
+        data = datadoldur(sorgu);
+
+        rows.Clear();
+
+        foreach (DataRow row in data.Rows)
+        {
+            string kod = Convert.ToString(row[0]).Trim().ToLower();
+            Yapi yapi = null;
+
+            foreach (Yapi item in rows)
+            {
+                if (item.Kod == kod)
+                {
+                    yapi = item;
+                    break;
+                }
+            }
+
+            if (yapi == null)
+            {
+                yapi = new Yapi();
+                yapi.Kod = kod;
+                yapi.Sayi = 0;
+                yapi.Birlestirildi = false;
+                rows.Add(yapi);
+            }
+
+            yapi.Sayi++;
+        }
+
+        grdStokDurumu.DataSource = data;
+        grdStokDurumu.DataBind();
+    }
+
+    public static DataTable datadoldur(string Sql)
+    {
+        SqlConnection conn = new SqlConnection(System.Web.Configuration.WebConfigurationManager.ConnectionStrings["DbConnLinkSorgu"].ToString());
+
+        DataTable dt = new DataTable();
+        try
+        {
+            conn.Open();
+            SqlDataAdapter adapter = new SqlDataAdapter(Sql, conn);
+            adapter.Fill(dt);
+        }
+        finally
+        {
+            conn.Close();
+        }
+        return dt;
+    }
+
+    protected void PrintCurrentPage(object sender, EventArgs e)
+    {
+        //grdStokDurumu.PagerSettings.Visible = false;
+        //grdStokDurumu.DataBind();
+        
+        StringWriter sw = new StringWriter();
+        HtmlTextWriter hw = new HtmlTextWriter(sw);
+        grdStokDurumu.RenderControl(hw);
+        string gridHTML = sw.ToString().Replace("\"", "'").Replace(System.Environment.NewLine, "");
+        StringBuilder sb = new StringBuilder();
+        sb.Append("<script type = 'text/javascript'>");
+        sb.Append("window.onload = new function(){");
+        sb.Append("var printWin = window.open('', '', 'left=0");
+        sb.Append(",top=0,width=1000,height=600,status=0,tollbar=0,scrollbars=1,resizable=1');");
+        sb.Append("printWin.document.write(\"");
+        sb.Append(gridHTML);
+        sb.Append("\");");
+        sb.Append("printWin.document.close();");
+        sb.Append("printWin.focus();");
+        sb.Append("printWin.print();");
+        sb.Append("printWin.close();};");
+        sb.Append("</script>");
+        ClientScript.RegisterStartupScript(this.GetType(), "GridPrint", sb.ToString());
+
+        //grdStokDurumu.PagerSettings.Visible = true;
+        //grdStokDurumu.DataBind();
+    }
+
+    protected void PrintAllPages(object sender, EventArgs e)
+    {
+        grdStokDurumu.AllowPaging = false;
+        grdStokDurumu.DataBind();
+        StringWriter sw = new StringWriter();
+        HtmlTextWriter hw = new HtmlTextWriter(sw);
+        grdStokDurumu.RenderControl(hw);
+        string gridHTML = sw.ToString().Replace("\"", "'").Replace(System.Environment.NewLine, "");
+        StringBuilder sb = new StringBuilder();
+        sb.Append("<script type = 'text/javascript'>");
+        sb.Append("window.onload = new function(){");
+        sb.Append("var printWin = window.open('', '', 'left=0");
+        sb.Append(",top=0,width=1000,height=600,status=0');");
+        sb.Append("printWin.document.write(\"");
+        sb.Append(gridHTML);
+        sb.Append("\");");
+        sb.Append("printWin.document.close();");
+        sb.Append("printWin.focus();");
+        sb.Append("printWin.print();");
+        sb.Append("printWin.close();};");
+        sb.Append("</script>");
+        ClientScript.RegisterStartupScript(this.GetType(), "GridPrint", sb.ToString());
+        grdStokDurumu.AllowPaging = true;
+        grdStokDurumu.DataBind();
+    }
+
+    public override void VerifyRenderingInServerForm(System.Web.UI.Control control)
+    {
+
+    }
+
+    private void kontrol()
+    {
+        string Tablo = "<table width=\"78%\" border=\"0\" cellspacing=\"0\" cellpadding=\"0\"> " +
+  "<tr> " +
+    "<td height=\"25\" align=\"center\">Stok Kodu</td> " +
+    "<td align=\"center\">Stok Adı</td> " +
+    "<td align=\"center\">Azami Stok</td> " +
+    "<td align=\"center\">Eldeki Miktar</td> " +
+    "<td align=\"center\">Günlük Sarfiyat</td> " +
+    "<td align=\"center\">Açık Sipariş Miktarı</td> " +
+    "<td align=\"center\">Yeni İhtiyaç Miktarı</td> " +
+    "<td align=\"center\">İhtiyaç Tarihi</td> " +
+    "<td align=\"center\">Birim</td> " +
+  "</tr> " +
+  "<tr> " +
+    "<td>&nbsp;</td> " +
+    "<td>&nbsp;</td> " +
+    "<td>&nbsp;</td> " +
+    "<td>&nbsp;</td> " +
+    "<td>&nbsp;</td> " +
+    "<td>&nbsp;</td> " +
+    "<td>&nbsp;</td> " +
+    "<td>&nbsp;</td> " +
+    "<td>&nbsp;</td> " +
+  "</tr> " +
+"</table>";
+
+        Literal1.Text = Tablo;
+    }
+
+    protected void grdStokDurumu_RowDataBound(object sender, GridViewRowEventArgs e)
+    {
+        if (e.Row.RowType == DataControlRowType.DataRow)
+        {
+            DataRowView row = e.Row.DataItem as DataRowView;
+
+            string kod = Convert.ToString(row[0]).Trim().ToLower();
+   
+            Yapi yapi = null;
+
+            foreach (Yapi item in rows)
+            {
+                if (item.Kod == kod)
+                {
+                    yapi = item;
+                    break;
+                }
+            }
+            if (yapi != null)
+            {
+                if (yapi.Birlestirildi)
+                {
+                    e.Row.Cells.Remove(e.Row.Cells[4]);
+                    e.Row.Cells.Remove(e.Row.Cells[3]);
+                    e.Row.Cells.Remove(e.Row.Cells[2]);
+                    e.Row.Cells.Remove(e.Row.Cells[1]);
+                    e.Row.Cells.Remove(e.Row.Cells[0]);
+
+                }
+                else
+                {
+                    e.Row.Cells[0].RowSpan = yapi.Sayi;
+                    e.Row.Cells[1].RowSpan = yapi.Sayi;
+                    e.Row.Cells[2].RowSpan = yapi.Sayi;
+                    e.Row.Cells[3].RowSpan = yapi.Sayi;
+                    e.Row.Cells[4].RowSpan = yapi.Sayi;
+
+                    yapi.Birlestirildi = true;
+                }
+            }
+            
+        }
+    }
+}

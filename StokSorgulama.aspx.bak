@@ -1,0 +1,92 @@
+﻿<%@ Page Title="" Language="C#" MasterPageFile="~/Anasayfa.master" AutoEventWireup="true" CodeFile="StokSorgulama.aspx.cs" Inherits="StokSorgulama" %>
+
+<%@ Register assembly="DevExpress.Web.ASPxEditors.v12.1, Version=12.1.6.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" namespace="DevExpress.Web.ASPxEditors" tagprefix="dx" %>
+
+<%@ Register assembly="DevExpress.Web.ASPxGridView.v12.1, Version=12.1.6.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" namespace="DevExpress.Web.ASPxGridView" tagprefix="dx" %>
+
+<asp:Content ID="Content1" ContentPlaceHolderID="head" Runat="Server">
+    <style type="text/css">
+        .auto-style2 {
+            height: 19px;
+        }
+        .auto-style3 {
+            height: 19px;
+            width: 115px;
+        }
+        .auto-style4 {
+            width: 115px;
+        }
+    </style>
+</asp:Content>
+<asp:Content ID="Content2" ContentPlaceHolderID="ContentPlaceHolder1" Runat="Server">
+    <br /><table width="600" border="0" align="center">
+  <tr>
+    <td scope="row" class="auto-style3"><asp:Label ID="lblStokKarti" runat="server" Text="Stok Kodu"></asp:Label></td>
+    <td width="150" class="auto-style2"><dx:ASPxTextBox ID="txtStokKodu" runat="server" Width="350px"></dx:ASPxTextBox>
+      </td>
+  </tr>
+  <tr>
+    <td scope="row" class="auto-style4"><asp:Label ID="lblStokAdi" runat="server" Text="Stok Adı"></asp:Label></td>
+    <td width="150" class="auto-style2"><dx:ASPxTextBox ID="txtStokAdi" runat="server" Width="350px"></dx:ASPxTextBox>
+      </td>
+  </tr>
+  <tr>
+    <td scope="row" class="auto-style4">&nbsp;</td>
+    <td width="150" class="auto-style2"><dx:ASPxButton ID="btnStokArama" runat="server" Text="Stok Ara" OnClick="btnStokArama_Click"></dx:ASPxButton>
+      </td>
+  </tr>
+</table><br /><center><asp:ScriptManager ID="ScriptManager1" runat="server">
+</asp:ScriptManager>
+        <asp:UpdatePanel ID="updatePanelGirisSorgusu" runat="server">
+        <ContentTemplate>
+    <dx:ASPxGridView ID="grdStokArama" runat="server" Width="80%" Theme="Default" 
+        AutoGenerateColumns="False" ClientInstanceName="grdStokArama" DataSourceID="SqlSorgulama">
+        <Columns>
+            <dx:GridViewDataTextColumn FieldName="Mal Kodu" VisibleIndex="0">
+                <Settings AutoFilterCondition="Contains" />
+            </dx:GridViewDataTextColumn>
+            <dx:GridViewDataTextColumn FieldName="Açıklama" VisibleIndex="1">
+                <Settings AutoFilterCondition="Contains" />
+            </dx:GridViewDataTextColumn>
+            <dx:GridViewDataTextColumn FieldName="Birim" VisibleIndex="2">
+                <Settings AllowAutoFilter="False" />
+            </dx:GridViewDataTextColumn>
+            <dx:GridViewDataTextColumn FieldName="Tip Kodu" VisibleIndex="3">
+                <Settings AllowAutoFilter="False" />
+            </dx:GridViewDataTextColumn>
+            <dx:GridViewDataTextColumn FieldName="Özel Kodu" VisibleIndex="4">
+                <Settings AllowAutoFilter="False" />
+            </dx:GridViewDataTextColumn>
+            <dx:GridViewDataTextColumn FieldName="Grup Kodu" VisibleIndex="5">
+                <Settings AllowAutoFilter="False" />
+            </dx:GridViewDataTextColumn>
+            <dx:GridViewDataTextColumn FieldName="Stok Miktarı" VisibleIndex="6" ReadOnly="True">
+                <Settings AllowAutoFilter="False" />
+            </dx:GridViewDataTextColumn>
+        </Columns>
+        <SettingsPager SEOFriendly="Enabled" PageSize="30">
+            <FirstPageButton Text="İlk Sayfa">
+            </FirstPageButton>
+            <LastPageButton Text="Son Sayfa">
+            </LastPageButton>
+            <NextPageButton Text="İleri">
+            </NextPageButton>
+            <PrevPageButton Text="Geri">
+            </PrevPageButton>
+            <Summary Text="Sayfa {0} ile {1} Arası ({2} Ürün)" />
+            <PageSizeItemSettings Caption="Sayfa:">
+            </PageSizeItemSettings>
+        </SettingsPager>
+        <Settings ShowFilterRow="True" />
+        <SettingsText EmptyDataRow="Kayıt Bulunamamıştır." />
+    </dx:ASPxGridView>
+        <asp:SqlDataSource ID="SqlSorgulama" runat="server" ConnectionString="<%$ ConnectionStrings:DbConnLink %>" 
+            SelectCommand="SELECT STK004_MalKodu AS 'Mal Kodu',STK004_Aciklama AS 'Açıklama', 
+STK004_Birim1 AS Birim,STK004_TipKodu AS 'Tip Kodu',STK004_OzelKodu AS 'Özel Kodu', 
+STK004_GrupKodu AS 'Grup Kodu',(STK004_GirisMiktari-STK004_CikisMiktari) AS 'Stok Miktarı' 
+FROM  STK004 WITH(NOLOCK)  
+ORDER BY STK004_MalKodu"></asp:SqlDataSource></ContentTemplate>
+</asp:UpdatePanel>
+    </center>
+</asp:Content>
+

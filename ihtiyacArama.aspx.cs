@@ -1,0 +1,503 @@
+﻿using System;
+using System.Linq;
+using System.Web;
+using System.Web.UI.WebControls;
+using System.Data;
+using System.Data.SqlClient;
+using System.Configuration;
+using System.Web.Services;
+using System.Windows.Forms;
+using System.Web.UI;
+using System.Web.UI.HtmlControls;
+using System.IO;
+using DevExpress.Web;
+using System.Drawing;
+using System.Collections;
+using System.Collections.Generic;
+
+public partial class ihtiyacArama : System.Web.UI.Page
+{
+
+    #region Bağlantı Ayarları
+
+    SqlConnection DbConnUser = new SqlConnection(ConfigurationManager.ConnectionStrings["DbConnUser"].ToString());
+    SqlConnection DbConnKullanicilar = new SqlConnection(ConfigurationManager.ConnectionStrings["DbConnUser"].ToString());
+    SqlCommand cmd, cmdKullanicilar;
+    SqlDataReader dr;
+    bool Aramalar;
+    string KullaniciSorgu, DepartmanSorgu, AramaSorgu;
+    double MinimumTarih, MaximumTarih;
+    int MinTarih, MaxTarih;
+
+    #endregion
+
+    string StokKodu, StokAciklama, SQLSorgu, GelenKullanici, Kullanicilarimiz;
+    bool SatinAlmaButonu, SiparisButonu;
+    string[] Kullanicilarimiz2;
+
+    protected void Page_Load(object sender, EventArgs e)
+    {
+        if (Session["Giris"] != "Evet")
+        {
+            Response.Redirect("Login.Aspx");
+        }
+        else
+        {
+            grdTalepler.PagerSettings.Mode = PagerButtons.NumericFirstLast;
+
+            GelenKullanici = Session["KullaniciKodu"].ToString();
+            SiparisButonu = SiparisButonDurumu(GelenKullanici);
+            SatinAlmaButonu = SatinAlmaButonDurumu(GelenKullanici);
+
+            string Yetkili = Session["Yetki"].ToString();
+            string DepartmanKodu = Session["DepartmanKodu"].ToString();
+            int AltDepartmanID = Convert.ToInt32(Session["AltDepartmanID"].ToString());
+
+            Aramalar = Convert.ToBoolean(Session["Aramalar"].ToString());
+            if (!IsPostBack)
+            {
+                minTarih.Date = DateTime.Now;
+                maxTarih.Date = DateTime.Now;
+
+                if (Aramalar == true)
+                {
+                    KullaniciSorgu = "SELECT USERID,KullaniciAdi,KullaniciKodu FROM Kullanicilar AS K " +
+                                    "INNER JOIN Departmanlar AS D ON K.DepartmanID=D.DepartmanID " +
+                                    "ORDER BY USERID ASC";
+
+
+                    DepartmanSorgu = "SELECT TOP(1) 'Seçiniz' AS DepartmanAdi,'Seçiniz' AS DepartmanKodu " +
+                                     "UNION ALL " +
+                                     "SELECT DepartmanAdi,DepartmanKodu FROM Departmanlar";
+                }
+                else
+                {
+                    KullaniciSorgu = "SELECT USERID,AdSoyad,KullaniciKodu FROM Kullanicilar AS K " +
+                                "INNER JOIN Departmanlar AS D ON K.DepartmanID=D.DepartmanID " +
+                                "WHERE Yetki <= " + Convert.ToInt32(Yetkili) + " AND D.DepartmanKodu = '" + DepartmanKodu.ToString() + "' " +
+                                " AND AltDepartmanID=" + AltDepartmanID + " " +
+                                "ORDER BY USERID ASC";
+
+                    DepartmanSorgu = "SELECT DepartmanAdi,DepartmanKodu FROM Departmanlar " +
+                                     "WHERE DepartmanKodu='" + DepartmanKodu.ToString() + "'";
+                }
+
+
+                drpDepartmanKodu.DataTextField = "DepartmanAdi";
+                drpDepartmanKodu.DataValueField = "DepartmanKodu";
+                drpDepartmanKodu.DataSource = datadoldur(DepartmanSorgu);
+                drpDepartmanKodu.DataBind();
+
+                if (DbConnUser.State == ConnectionState.Closed)
+                    DbConnUser.Open();
+
+                cmd = new SqlCommand(KullaniciSorgu, DbConnUser);
+                dr = cmd.ExecuteReader(CommandBehavior.CloseConnection);
+
+                while (dr.Read())
+                {
+                    Kullanicilarimiz += dr["KullaniciKodu"].ToString() + ",";
+                }
+
+                int Kullanicilarimiz4 = Kullanicilarimiz.ToString().Length - 1;
+                Kullanicilarimiz = Kullanicilarimiz.ToString().Substring(0, Kullanicilarimiz4);
+                Kullanicilarimiz2 = Kullanicilarimiz.Split(',');
+
+                Kullanicilarimiz = null;
+
+                for (int i = 0; i < Kullanicilarimiz2.Length; i++)
+                {
+                    Kullanicilarimiz += "'" + Kullanicilarimiz2[i].ToString() + "',";
+                }
+
+                int Kullanicilarimiz3 = Kullanicilarimiz.ToString().Length - 1;
+
+                Kullanicilarimiz = Kullanicilarimiz.ToString().Substring(0, Kullanicilarimiz3);
+                Session["SecilenKullanicilar"] = Kullanicilarimiz;
+
+                //drpKullanicilar.DataTextField = "AdSoyad";
+                //drpKullanicilar.DataValueField = "KullaniciKodu";
+                //drpKullanicilar.DataSource = datadoldur(KullaniciSorgu);
+                //drpKullanicilar.DataBind();
+            }
+        }
+    }
+
+    public static DataTable datadoldur(string Sql)
+    {
+        SqlConnection conn = new SqlConnection(System.Web.Configuration.WebConfigurationManager.ConnectionStrings["DbConnUser"].ToString());
+
+        DataTable dt = new DataTable();
+        try
+        {
+            conn.Open();
+            SqlDataAdapter adapter = new SqlDataAdapter(Sql, conn);
+            adapter.Fill(dt);
+        }
+        finally
+        {
+            conn.Close();
+        }
+        return dt;
+    }
+
+    protected void btnihtiyacAra_Click(object sender, EventArgs e)
+    {
+        ihtArama();
+    }
+
+    private void ihtArama()
+    {
+        if (SatinAlmaButonu == false && SiparisButonu == false)
+        {
+            if (string.IsNullOrEmpty(minTarih.Text.ToString()))
+            {
+                Alert.Show("Başlangıç Tarihi Seçmediniz.Lütfen Kontrol Edip Tekrar Deneyin.");
+            }
+            else if (string.IsNullOrEmpty(maxTarih.Text.ToString()))
+            {
+                Alert.Show("Bitiş Tarihi Seçmediniz.Lütfen Kontrol Edip Tekrar Deneyin.");
+            }
+        }
+        //else
+        //{
+        DateTime Min = new DateTime();
+        Min = Convert.ToDateTime(minTarih.Date);
+        string MinStr;
+        MinimumTarih = 0;
+        MinimumTarih = Min.ToOADate();
+        MinStr = MinimumTarih.ToString().Substring(0, 5);
+        MinTarih = Convert.ToInt32(MinStr);
+
+
+        DateTime Max = new DateTime();
+        Max = Convert.ToDateTime(maxTarih.Date);
+
+        string MaxStr;
+        MaximumTarih = 0;
+        MaximumTarih = Max.ToOADate();
+        MaxStr = MaximumTarih.ToString().Substring(0, 5);
+        MaxTarih = Convert.ToInt32(MaxStr);
+        string WhereSorgusu = "";
+
+        string MalKodumuz = "";
+        string MalKoduKontrol = drpStokKodlari.SelectedValue as string;
+
+        if (!string.IsNullOrEmpty(MalKoduKontrol))
+        {
+            MalKodumuz = drpStokKodlari.SelectedItem.Value.ToString();
+        }
+
+        string DepartmanKodu = drpDepartmanKodu.SelectedItem.Value.ToString();
+        string Kullanicilar = Session["SecilenKullanicilar"].ToString();
+
+        if (string.IsNullOrEmpty(txtihtiyacNo.Text))
+        {
+            if (SatinAlmaButonu == true || SiparisButonu == true)
+            {
+                if (string.IsNullOrEmpty(MalKodumuz))
+                {
+                    WhereSorgusu = " WHERE (T.Tarih BETWEEN " + MinTarih + " AND " + MaxTarih + ") " +
+                                          "AND OnayDurumu IN(1,2,3,4,5,6,7,8,9,10,11,12,13,14)";
+                }
+                else
+                {
+                    WhereSorgusu = " WHERE (T.Tarih BETWEEN " + MinTarih + " AND " + MaxTarih + ") " +
+                                        "AND (T.MalKodu='" + MalKodumuz.ToString() + "') " +
+                                        "AND OnayDurumu IN(1,2,3,4,5,6,7,8,9,10,11,12,13,14)";
+                }
+
+                AramaSorgu = "SELECT T.TalepID,T.EvrakNoTarih+T.EvrakNo AS EvrakNo,CONVERT(VARCHAR(10),CONVERT(DATETIME,Tarih-2),104) AS Tarih, " +
+                   "T.MalAdi,T.Miktar,T.SipMiktar,TM.TeminAdi AS TeminYeri,(CASE T.OnayDurumu " +
+                   "WHEN 1 THEN 'Şeften Onay Bekleniyor' " +
+                   "WHEN 2 THEN 'Müdürden Onay Bekleniyor' " +
+                   "WHEN 3 THEN 'Ambara Gönderildi' " +
+                   "WHEN 4 THEN 'Temine Hazır' " +
+                   "WHEN 5 THEN 'Satın Alma Onayı Bekleniyor' " +
+                   "WHEN 6 THEN 'Teklif Aşamasında' " +
+                   "WHEN 7 THEN 'Sipariş Açıldı' " +
+                   "WHEN 8 THEN 'Satın Alma Tarafından Beklemeye Alındı' " +
+                   "WHEN 9 THEN 'Red Edildi' " +
+                   "WHEN 10 THEN 'Red Edildi' " +
+                   "WHEN 11 THEN 'Red Edildi' " +
+                   "WHEN 12 THEN 'Red Edildi' " +
+                   "WHEN 13 THEN 'İhtiyaç Kapandı' " +
+                   "WHEN 14 THEN 'Sipariş Açıldı' " +
+                   "END) AS OnayDurumu,T.AdSoyad " +
+                   "FROM Tlp AS T " +
+                   "INNER JOIN TeminYeri AS TM on T.TeminYeri=TM.TeminKodu " +
+                    WhereSorgusu +
+                   "GROUP BY T.TalepID,T.EvrakNoTarih+T.EvrakNo,Tarih, " +
+                   "T.MalAdi,T.Miktar,T.SipMiktar,TM.TeminAdi,T.OnayDurumu,T.AdSoyad ";
+
+            }
+            else
+            {
+                if (Aramalar == true)
+                {
+                    if (string.IsNullOrEmpty(MalKodumuz))
+                    {
+                        if (DepartmanKodu == "Seçiniz")
+                        {
+                            WhereSorgusu = " WHERE (T.Tarih BETWEEN " + MinTarih + " AND " + MaxTarih + ") " +
+                                           "AND OnayDurumu IN(1,2,3,4,5,6,7,8,9,10,11,12,13,14)";
+                        }
+                        else
+                        {
+                            WhereSorgusu = " WHERE (T.Tarih BETWEEN " + MinTarih + " AND " + MaxTarih + ") " +
+                                           "AND (T.DepartmanKodu='" + DepartmanKodu.ToString() + "') " +
+                                           "AND OnayDurumu IN(1,2,3,4,5,6,7,8,9,10,11,12,13,14)";
+                        }
+                    }
+                    else
+                    {
+                        if (DepartmanKodu == "Seçiniz")
+                        {
+                            WhereSorgusu = " WHERE (T.Tarih BETWEEN " + MinTarih + " AND " + MaxTarih + ") " +
+                                           "AND (T.MalKodu='" + MalKodumuz.ToString() + "') " +
+                                           "AND OnayDurumu IN(1,2,3,4,5,6,7,8,9,10,11,12,13,14)";
+                        }
+                        else
+                        {
+                            WhereSorgusu = " WHERE (T.Tarih BETWEEN " + MinTarih + " AND " + MaxTarih + ") " +
+                                           "AND (T.MalKodu='" + MalKodumuz.ToString() + "') " +
+                                           "AND (T.DepartmanKodu='" + DepartmanKodu.ToString() + "') " +
+                                           "AND OnayDurumu IN(1,2,3,4,5,6,7,8,9,10,11,12,13,14)";
+                        }
+                    }
+
+                    AramaSorgu = "SELECT T.TalepID,T.EvrakNoTarih+T.EvrakNo AS EvrakNo,CONVERT(VARCHAR(10),CONVERT(DATETIME,Tarih-2),104) AS Tarih, " +
+                               "T.MalAdi,T.Miktar,T.SipMiktar,TM.TeminAdi AS TeminYeri,(CASE T.OnayDurumu " +
+                               "WHEN 1 THEN 'Şeften Onay Bekleniyor' " +
+                               "WHEN 2 THEN 'Müdürden Onay Bekleniyor' " +
+                               "WHEN 3 THEN 'Ambara Gönderildi' " +
+                               "WHEN 4 THEN 'Temine Hazır' " +
+                               "WHEN 5 THEN 'Satın Alma Onayı Bekleniyor' " +
+                               "WHEN 6 THEN 'Teklif Aşamasında' " +
+                               "WHEN 7 THEN 'Sipariş Açıldı' " +
+                               "WHEN 8 THEN 'Satın Alma Tarafından Beklemeye Alındı' " +
+                               "WHEN 9 THEN 'Red Edildi' " +
+                               "WHEN 10 THEN 'Red Edildi' " +
+                               "WHEN 11 THEN 'Red Edildi' " +
+                               "WHEN 12 THEN 'Red Edildi' " +
+                               "WHEN 13 THEN 'İhtiyaç Kapandı' " +
+                               "WHEN 14 THEN 'Sipariş Açıldı' " +
+                               "END) AS OnayDurumu,T.AdSoyad " +
+                               "FROM Tlp AS T " +
+                               "INNER JOIN TeminYeri AS TM on T.TeminYeri=TM.TeminKodu " +
+                               WhereSorgusu +
+                               "GROUP BY T.TalepID,T.EvrakNoTarih+T.EvrakNo,Tarih, " +
+                               "T.MalAdi,T.Miktar,T.SipMiktar,TM.TeminAdi,T.OnayDurumu,T.AdSoyad ";
+                }
+                else
+                {
+                    if (string.IsNullOrEmpty(MalKodumuz))
+                    {
+                        if (DepartmanKodu == "Seçiniz")
+                        {
+                            string DepKod = Session["DepartmanKodu"].ToString();
+
+                            WhereSorgusu = " WHERE (T.Tarih BETWEEN " + MinTarih + " AND " + MaxTarih + ") " +
+                                           "AND (T.Kaydeden IN(" + Kullanicilar.ToString() + ")) " +
+                                           "AND (T.DepartmanKodu='" + DepKod.ToString() + "') " +
+                                           "AND OnayDurumu IN(1,2,3,4,5,6,7,8,14)";
+                        }
+                        else
+                        {
+                            WhereSorgusu = " WHERE (T.Tarih BETWEEN " + MinTarih + " AND " + MaxTarih + ") " +
+                                           "AND (T.DepartmanKodu='" + DepartmanKodu.ToString() + "') " +
+                                           "AND (T.Kaydeden IN(" + Kullanicilar.ToString() + ")) " +
+                                           "AND OnayDurumu IN(1,2,3,4,5,6,7,8,9,10,11,12,13,14)";
+                        }
+                    }
+                    else
+                    {
+                        if (DepartmanKodu == "Seçiniz")
+                        {
+                            string DepKod = Session["DepartmanKodu"].ToString();
+
+                            WhereSorgusu = " WHERE (T.Tarih BETWEEN " + MinTarih + " AND " + MaxTarih + ") " +
+                                           "AND (T.MalKodu='" + MalKodumuz.ToString() + "') " +
+                                           "AND (T.DepartmanKodu='" + DepKod.ToString() + "') " +
+                                           "AND (T.Kaydeden IN(" + Kullanicilar.ToString() + ")) " +
+                                           "AND OnayDurumu IN(1,2,3,4,5,6,7,8,9,10,11,12,13,14)";
+                        }
+                        else
+                        {
+                            WhereSorgusu = " WHERE (T.Tarih BETWEEN " + MinTarih + " AND " + MaxTarih + ") " +
+                                           "AND (T.MalKodu='" + MalKodumuz.ToString() + "') " +
+                                           "AND (T.DepartmanKodu='" + DepartmanKodu.ToString() + "') " +
+                                           "AND (T.Kaydeden IN(" + Kullanicilar.ToString() + ")) " +
+                                           "AND OnayDurumu IN(1,2,3,4,5,6,7,8,9,10,11,12,13,14)";
+                        }
+                    }
+
+                    AramaSorgu = "SELECT T.TalepID,T.EvrakNoTarih+T.EvrakNo AS EvrakNo,CONVERT(VARCHAR(10),CONVERT(DATETIME,Tarih-2),104) AS Tarih, " +
+                               "T.MalAdi,T.Miktar,T.SipMiktar,TM.TeminAdi AS TeminYeri,(CASE T.OnayDurumu " +
+                               "WHEN 1 THEN 'Şeften Onay Bekleniyor' " +
+                               "WHEN 2 THEN 'Müdürden Onay Bekleniyor' " +
+                               "WHEN 3 THEN 'Ambara Gönderildi' " +
+                               "WHEN 4 THEN 'Temine Hazır' " +
+                               "WHEN 5 THEN 'Satın Alma Onayı Bekleniyor' " +
+                               "WHEN 6 THEN 'Teklif Aşamasında' " +
+                               "WHEN 7 THEN 'Sipariş Açıldı' " +
+                               "WHEN 8 THEN 'Satın Alma Tarafından Beklemeye Alındı' " +
+                               "WHEN 9 THEN 'Red Edildi' " +
+                               "WHEN 10 THEN 'Red Edildi' " +
+                               "WHEN 11 THEN 'Red Edildi' " +
+                               "WHEN 12 THEN 'Red Edildi' " +
+                               "WHEN 13 THEN 'İhtiyaç Kapandı' " +
+                               "WHEN 14 THEN 'Sipariş Açıldı' " +
+                               "END) AS OnayDurumu,T.AdSoyad " +
+                               "FROM Tlp AS T " +
+                               "INNER JOIN TeminYeri AS TM on T.TeminYeri=TM.TeminKodu " +
+                                WhereSorgusu +
+                               "GROUP BY T.TalepID,T.EvrakNoTarih+T.EvrakNo,Tarih, " +
+                               "T.MalAdi,T.Miktar,T.SipMiktar,TM.TeminAdi,T.OnayDurumu,T.AdSoyad ";
+                }
+            }
+        }
+        else
+        {
+            AramaSorgu = "SELECT T.TalepID,T.EvrakNoTarih+T.EvrakNo AS EvrakNo,CONVERT(VARCHAR(10),CONVERT(DATETIME,Tarih-2),104) AS Tarih, " +
+                               "T.MalAdi,T.Miktar,T.SipMiktar,TM.TeminAdi AS TeminYeri,(CASE T.OnayDurumu " +
+                               "WHEN 1 THEN 'Şeften Onay Bekleniyor' " +
+                               "WHEN 2 THEN 'Müdürden Onay Bekleniyor' " +
+                               "WHEN 3 THEN 'Ambara Gönderildi' " +
+                               "WHEN 4 THEN 'Temine Hazır' " +
+                               "WHEN 5 THEN 'Satın Alma Onayı Bekleniyor' " +
+                               "WHEN 6 THEN 'Teklif Aşamasında' " +
+                               "WHEN 7 THEN 'Sipariş Açıldı' " +
+                               "WHEN 8 THEN 'Satın Alma Tarafından Beklemeye Alındı' " +
+                               "WHEN 9 THEN 'Red Edildi' " +
+                               "WHEN 10 THEN 'Red Edildi' " +
+                               "WHEN 11 THEN 'Red Edildi' " +
+                               "WHEN 12 THEN 'Red Edildi' " +
+                               "WHEN 13 THEN 'İhtiyaç Kapandı' " +
+                               "WHEN 14 THEN 'Sipariş Açıldı' " +
+                               "END) AS OnayDurumu,T.AdSoyad " +
+                               "FROM Tlp AS T " +
+                               "INNER JOIN TeminYeri AS TM on T.TeminYeri=TM.TeminKodu " +
+                               "WHERE EvrakNoTarih+EvrakNo='" + txtihtiyacNo.Text + "' " +
+                               "GROUP BY T.TalepID,T.EvrakNoTarih+T.EvrakNo,Tarih, " +
+                               "T.MalAdi,T.Miktar,T.SipMiktar,TM.TeminAdi,T.OnayDurumu,T.AdSoyad ";
+        }
+        //Alert.Show(AramaSorgu);
+        grdTalepler.DataSource = datadoldur(AramaSorgu);
+        grdTalepler.DataBind();
+    }
+
+    protected void btnStokArama_Click(object sender, EventArgs e)
+    {
+        StokKodu = txtStokKodu.Text;
+        StokAciklama = txtStokAdi.Text;
+
+        if (string.IsNullOrEmpty(StokKodu))
+        {
+            SQLSorgu = "SELECT * FROM StokKodlari " +
+                    "WHERE StokAciklama LIKE'%" + StokAciklama + "%'";
+        }
+        else if (string.IsNullOrEmpty(StokAciklama))
+        {
+            SQLSorgu = "SELECT * FROM StokKodlari " +
+                    "WHERE StokKodu LIKE '%" + StokKodu + "%'";
+        }
+
+        if (!string.IsNullOrEmpty(StokKodu) && !string.IsNullOrEmpty(StokAciklama))
+        {
+            SQLSorgu = "SELECT * FROM StokKodlari " +
+                       "WHERE StokKodu LIKE '%" + StokKodu + "%'";
+        }
+
+        DatasetDoldur baglan = new DatasetDoldur();
+        DataSet ds = baglan.StokKartlarimiz(SQLSorgu);
+        drpStokKodlari.DataSource = ds;
+        drpStokKodlari.DataBind();
+        drpStokAdi.DataSource = ds;
+        drpStokAdi.DataBind();
+
+        txtStokKodu.Text = null;
+        txtStokAdi.Text = null;
+    }
+
+    protected void drpStokKodlari_SelectedIndexChanged(object sender, EventArgs e)
+    {
+        if (DbConnUser.State == ConnectionState.Closed)
+            DbConnUser.Open();
+
+        StokKodu = drpStokKodlari.SelectedValue.ToString();
+        SQLSorgu = "SELECT * FROM StokKodlari " +
+                    "WHERE StokKodu LIKE '%" + StokKodu + "%'";
+
+        cmd = new SqlCommand(SQLSorgu, DbConnUser);
+        dr = cmd.ExecuteReader(CommandBehavior.CloseConnection);
+
+        if (dr.Read())
+        {
+            drpStokAdi.SelectedItem.Text = dr["StokAciklama"].ToString();
+        }
+
+        dr.Dispose();
+        dr.Close();
+        DbConnUser.Dispose();
+        DbConnUser.Close();
+    }
+
+    protected void drpStokAdi_SelectedIndexChanged(object sender, EventArgs e)
+    {
+        if (DbConnUser.State == ConnectionState.Closed)
+            DbConnUser.Open();
+
+        StokKodu = drpStokAdi.SelectedValue.ToString();
+        SQLSorgu = "SELECT * FROM StokKodlari " +
+                    "WHERE StokAciklama LIKE '%" + StokKodu + "%'";
+
+        cmd = new SqlCommand(SQLSorgu, DbConnUser);
+        dr = cmd.ExecuteReader(CommandBehavior.CloseConnection);
+
+        if (dr.Read())
+        {
+            drpStokKodlari.Text = dr["StokKodu"].ToString();
+        }
+
+        dr.Dispose();
+        dr.Close();
+        DbConnUser.Dispose();
+        DbConnUser.Close();
+    }
+
+    private bool SiparisButonDurumu(string KullaniciKodu)
+    {
+        if (DbConnUser.State == ConnectionState.Closed)
+            DbConnUser.Open();
+
+        string sorgu = "SELECT Siparis FROM Kullanicilar " +
+                    "WHERE KullaniciKodu='" + KullaniciKodu.ToString() + "'";
+        cmd = new SqlCommand(sorgu, DbConnUser);
+        cmd.CommandTimeout = 120;
+        return (bool)cmd.ExecuteScalar();
+    }
+
+    private bool SatinAlmaButonDurumu(string KullaniciKodu)
+    {
+        if (DbConnUser.State == ConnectionState.Closed)
+            DbConnUser.Open();
+
+        string sorgu = "SELECT SatinAlma FROM Kullanicilar " +
+                       "WHERE KullaniciKodu='" + KullaniciKodu.ToString() + "'";
+        cmd = new SqlCommand(sorgu, DbConnUser);
+        cmd.CommandTimeout = 120;
+        return (bool)cmd.ExecuteScalar();
+    }
+
+    protected void grdTalepler_PageIndexChanging(object sender, GridViewPageEventArgs e)
+    {
+        grdTalepler.PageIndex = e.NewPageIndex;
+        ihtArama();
+    }
+
+    protected void btnihtiyacNoAra_Click(object sender, EventArgs e)
+    {
+        ihtArama();
+    }
+}

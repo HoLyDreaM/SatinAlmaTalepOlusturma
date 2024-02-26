@@ -1,0 +1,161 @@
+/* 
+	author: istockphp.com
+*/
+#backgroundPopup { 
+	z-index:1;
+	position: fixed;
+	display:none;
+	height:100%;
+	width:100%;
+	background:#000000;	
+	top:0px;  
+	left:0px;
+}
+#toFirma {
+	font-family: "Calibri";
+    background: none repeat scroll 0 0 #FFFFFF;
+    border: 10px solid #ccc;
+    border-radius: 3px 3px 3px 3px;
+    color: #333333;
+    display: none;
+	font-size: 12px;
+
+    margin-left: 30px;
+    margin-right: 200px;
+    position: fixed;
+    top: 10%;
+    width:90%;
+    z-index: 2;
+}
+
+#toUrun {
+	font-family: "Calibri";
+    background: none repeat scroll 0 0 #FFFFFF;
+    border: 10px solid #ccc;
+    -border-radius: 3px 3px 3px 3px;
+    color: #333333;
+    display: none;
+	font-size: 12px;
+
+    margin-left: 300px;
+    margin-right: 50px;
+    position: fixed;
+    top: 10%;
+    width:50%;
+    z-index: 2;
+
+}
+#toTeklif {
+	font-family: "Calibri";
+    background: none repeat scroll 0 0 #FFFFFF;
+    border: 10px solid #ccc;
+    border-radius: 3px 3px 3px 3px;
+    color: #333333;
+    display: none;
+	font-size: 12px;
+
+    margin-left: 30px;
+    margin-right: 50px;
+    position: fixed;
+    top: 10%;
+    width:90%;
+    z-index: 2;
+
+}
+div.loader {
+    background: url("../images/loading.gif") no-repeat scroll 0 0 transparent;
+    height: 32px;
+    width: 32px;
+	display: none;
+	z-index: 9999;
+	top: 40%;
+	left: 110%;
+	position: absolute;
+	margin-left: -11110px;
+}
+div.close {
+    background: url("../img/closebox.png") no-repeat scroll 0 0 transparent;
+    bottom: 24px;
+    cursor: pointer;
+    float: right;
+    height: 30px;
+    left: 27px;
+    position: relative;
+    width: 30px;
+}
+span.ecs_tooltip {
+    background: none repeat scroll 0 0 #000000;
+    border-radius: 2px 2px 2px 2px;
+    color: #FFFFFF;
+    display: none;
+    font-size: 11px;
+    height: 16px;
+    -opacity: 0.7;
+    padding: 4px 3px 2px 5px;
+    position: absolute;
+    right: -62px;
+    text-align: center;
+    top: -51px;
+    width: 93px;
+}
+span.arrow {
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 7px solid #000000;
+    display: block;
+    height: 1px;
+    left: 40px;
+    position: relative;
+    top: 3px;
+    width: 1px;
+}
+div#popup_content {
+    margin: 4px 7px;
+}
+div#popup_content2 {
+    margin: 4px 7px;
+}
+div#popup_content3 {
+    margin: 4px 7px;
+}
+
+.div_scr {
+    width      : 92%;
+    height     : 280px;
+    overflow-x : auto;
+    overflow-y : auto;
+    font-size  : 12px;
+}
+.Teklif_src {
+    width      : 96%;
+    height     : 280px;
+    overflow-x : auto;
+    overflow-y : auto;
+    font-size  : 12px;
+}
+.gridDetay {
+    width      : 88%;
+    height     : 280px;
+    overflow-x : auto;
+    overflow-y : auto;
+}
+        .headingText
+        {
+            font-size: 18pt;
+            font-weight: bold;
+            text-decoration: underline;
+        }
+        .topBar
+        {
+            border: solid 2px #555555;
+            text-align: center;
+            background-color: #aaaaaa;
+            padding-bottom: 10px;
+        }
+        .wrapper
+        {
+            background-color: #333333;
+            width: 100%;
+            height: 550px;
+            border: solid 2px black;
+        }

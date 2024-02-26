@@ -1,0 +1,328 @@
+﻿using System;
+using System.Linq;
+using System.Web;
+using System.Web.Services;
+using System.Web.UI;
+using System.Web.UI.HtmlControls;
+using System.Web.UI.WebControls;
+using System.Data;
+using System.Data.SqlClient;
+using System.Configuration;
+using System.Web.Services;
+using System.IO;
+using DevExpress.Web.ASPxEditors;
+using System.Drawing;
+using DevExpress.Web.ASPxGridView;
+using System.Collections;
+using System.Collections.Generic;
+
+public partial class Formlar_ihtiyacPusulalari : System.Web.UI.Page
+{
+
+    #region Bağlantı Ayarları
+
+    SqlConnection DbConnUser = new SqlConnection(ConfigurationManager.ConnectionStrings["DbConnUser"].ToString());
+    SqlConnection DbConnLink = new SqlConnection(ConfigurationManager.ConnectionStrings["DbConnLink"].ToString());
+    SqlConnection DbConnLinkSorgu = new SqlConnection(ConfigurationManager.ConnectionStrings["DbConnLinkSorgu"].ToString());
+    SqlCommand cmd, cmdSiparisCarisi;
+    SqlDataReader dr;
+    DataSet ds;
+    SqlDataAdapter da;
+    string DepartmanKodu;
+    int TabloSayisi;
+    string Linkdb;
+    string SifDb;
+    string Dizimiz;
+    string[] Dizimiz2;
+    public HtmlInputCheckBox[] printer;
+
+    #endregion
+
+    protected void Page_Load(object sender, EventArgs e)
+    {
+        string LinkVeritabanı = ConfigurationManager.ConnectionStrings["DbConnLinkSorgu"].ToString();
+        string SifVeritabani = ConfigurationManager.ConnectionStrings["DbConnUser"].ToString();
+
+        string[] SifDizi = new string[6];
+        string[] SifDizi2 = new string[3];
+        string[] LinkDizi = new string[6];
+        string[] LinkDizi2 = new string[3];
+        LinkDizi = LinkVeritabanı.Split('=');
+        LinkVeritabanı = LinkDizi[2].ToString();
+        LinkDizi2 = LinkVeritabanı.Split(';');
+        Linkdb = LinkDizi2[0].ToString();
+
+        SifDizi = SifVeritabani.Split('=');
+        SifVeritabani = SifDizi[2].ToString();
+        SifDizi2 = SifVeritabani.Split(';');
+        SifDb = SifDizi2[0].ToString();
+
+        if (Session["Giris"] != "Evet")
+        {
+            Response.Redirect("../Login.Aspx");
+        }
+        else
+        {
+            string TalepIDKontrol = Session["ihtiyacTalepID"] as string;
+
+            if (!string.IsNullOrEmpty(TalepIDKontrol))
+            {
+                imgYaziciyaGonder.OnClientClick = "MM_openBrWindow('ihtiyacPusulasi.Aspx','','toolbar=yes,location=yes,status=yes,resizable=yes,scrollbars=yes,width=900,height=550')";
+            }
+            else
+            {
+                Session["ihtiyacTalepID"] = "1";
+            }
+            ihtiyacPusulaTablomuz();
+        }
+    }
+
+    private void ihtiyacPusulaTablomuz()
+    {
+        if (DbConnLinkSorgu.State == ConnectionState.Closed)
+            DbConnLinkSorgu.Open();
+
+        ds = new DataSet();
+
+        DepartmanKodu = Session["DepartmanKodu"].ToString();
+
+        string sorgu = "CREATE TABLE #SatinAlma( " +
+                       "TalepID INT, " +
+                       "EvrakNo NVARCHAR(50), " +
+                       "SiparisNo NVARCHAR(8), " +
+                       "MalKodu NVARCHAR(150), " +
+                       "MalAdi NVARCHAR(150), " +
+                       "DepartmanAdi NVARCHAR(150), " +
+                       "Tarih NVARCHAR(150), " +
+                       "Miktar NUMERIC(25,2), " +
+                       "Birim NVARCHAR(10), " +
+                       "KullanilacakYer NVARCHAR(150) " +
+                       ") " +
+                       "INSERT INTO #SatinAlma " +
+                       "SELECT T.TalepID,T.EvrakNoTarih+T.EvrakNo AS ihtiyacNo,ISNULL(S.STK002_EvrakSeriNo,'  ') AS SiparisNo,T.MalKodu,T.MalAdi, " +
+                       "T.DepartmanAdi,CONVERT(VARCHAR(10),(CONVERT(DATETIME,Tarih-2)),104) AS Tarih, " +
+                       "(CASE WHEN S.STK002_Miktari > 0 THEN S.STK002_Miktari ELSE T.Miktar END) AS Miktar,T.Birim,T.MasrafMerkeziAdi AS KullanilacakYer FROM " + SifDb + ".dbo.Tlp AS T " +
+                       "LEFT JOIN " + Linkdb.ToString() + ".STK002 AS S ON S.STK002_EvrakSeriNo2=T.EvrakNoTarih+T.EvrakNo " +
+                       "WHERE (T.OnayDurumu IN(7,6,14)) AND (T.GidecekDepartman='" + DepartmanKodu + "') AND (T.ihtiyacPusulasi = 0) AND (idariKisim = 1 OR TeknikKisim = 1 OR SiparisFormu = 1)" +
+                       "GROUP BY T.TalepID,S.STK002_EvrakSeriNo,T.MalKodu,T.MalAdi, " +
+                       "T.DepartmanAdi,T.Tarih,T.EvrakNoTarih+T.EvrakNo, " +
+                       "S.STK002_Miktari,T.Birim,T.MasrafMerkeziAdi,T.Miktar " +
+                       "ORDER BY CONVERT(DATETIME,T.Tarih-2) DESC " +
+                       "SELECT * FROM #SatinAlma " +
+                       "DROP TABLE #SatinAlma";
+
+        da = new SqlDataAdapter(sorgu, DbConnLinkSorgu);
+        da.Fill(ds, "SatinAlma");
+
+        TabloSayisi = ds.Tables["SatinAlma"].Rows.Count;
+        printer = new HtmlInputCheckBox[TabloSayisi];
+
+        Literal Lt = new Literal();
+        Lt.Text = "<table width=\"1100\" border=\"0\"><tr>" +
+            "<td width=\"50\" align=\"center\" scope=\"col\" style=\"font-family:Calibri; font-size:14px; font-weight:bold;border:1px solid Black;\">Çıktı Al</td> " +
+            "<td width=\"150\" align=\"center\" scope=\"col\" style=\"font-family:Calibri; font-size:14px; font-weight:bold;border:1px solid Black;\">İhtiyaç No</td> " +
+            "<td width=\"100\" align=\"center\" scope=\"col\" style=\"font-family:Calibri; font-size:14px; font-weight:bold;border:1px solid Black;\">Sipariş No</td> " +
+            "<td width=\"100\" align=\"center\" scope=\"col\" style=\"font-family:Calibri; font-size:14px; font-weight:bold;border:1px solid Black;\">Stok Kodu</td> " +
+            "<td width=\"200\" align=\"center\" scope=\"col\" style=\"font-family:Calibri; font-size:14px; font-weight:bold;border:1px solid Black;\">Malzeme Adı</td> " +
+            "<td width=\"150\" align=\"center\" scope=\"col\" style=\"font-family:Calibri; font-size:14px; font-weight:bold;border:1px solid Black;\">Departman Adı</td> " +
+            "<td width=\"100\" align=\"center\" scope=\"col\" style=\"font-family:Calibri; font-size:14px; font-weight:bold;border:1px solid Black;\">Gelmesi İstenen Tarih</td> " +
+            "<td width=\"100\" align=\"center\" scope=\"col\" style=\"font-family:Calibri; font-size:14px; font-weight:bold;border:1px solid Black;\">Miktar</td> " +
+            "<td width=\"100\" align=\"center\" scope=\"col\" style=\"font-family:Calibri; font-size:14px; font-weight:bold;border:1px solid Black;\">Birim</td> " +
+            "<td width=\"150\" align=\"center\" scope=\"col\" style=\"font-family:Calibri; font-size:14px; font-weight:bold;border:1px solid Black;\">Kullanılacak Yer</td> " +
+            "</<tr>";
+        panelihtiyaclarimiz.Controls.Add(Lt);
+
+        for (int i = 0; i < ds.Tables["SatinAlma"].Rows.Count; i++)
+        {
+            Literal Lt4 = new Literal();
+            Lt4.Text = "<tr><td align=\"center\" style=\"border:1px solid Black;\">";
+            panelihtiyaclarimiz.Controls.Add(Lt4);
+
+            printer[i] = new HtmlInputCheckBox();
+            printer[i].ID = "printer" + i.ToString();
+            printer[i].Value = ds.Tables["SatinAlma"].Rows[i]["TalepID"].ToString();
+            printer[i].Name = "printer" + i.ToString();
+            panelihtiyaclarimiz.Controls.Add(printer[i]);
+
+            Literal Lt2 = new Literal();
+            Lt2.Text = "</td>";
+
+            panelihtiyaclarimiz.Controls.Add(Lt2);
+
+            Literal Lt1 = new Literal();
+            Lt1.Text = "<td align=\"center\" style=\"border:1px solid Black;\">" + ds.Tables["SatinAlma"].Rows[i]["EvrakNo"].ToString() + "</td> " +
+                     "<td align=\"center\" style=\"border:1px solid Black;\">" + ds.Tables["SatinAlma"].Rows[i]["SiparisNo"].ToString() + "</td> " +
+                     "<td align=\"center\" style=\"border:1px solid Black;\">" + ds.Tables["SatinAlma"].Rows[i]["MalKodu"].ToString() + "</td> " +
+                     "<td align=\"center\" style=\"border:1px solid Black;\">" + ds.Tables["SatinAlma"].Rows[i]["MalAdi"].ToString() + "</td> " +
+                     "<td align=\"center\" style=\"border:1px solid Black;\">" + ds.Tables["SatinAlma"].Rows[i]["DepartmanAdi"].ToString() + "</td> " +
+                     "<td align=\"center\" style=\"border:1px solid Black;\">" + ds.Tables["SatinAlma"].Rows[i]["Tarih"].ToString() + "</td> " +
+                     "<td align=\"center\" style=\"border:1px solid Black;\">" + ds.Tables["SatinAlma"].Rows[i]["Miktar"].ToString().Replace('.', ',') + "</td> " +
+                     "<td align=\"center\" style=\"border:1px solid Black;\">" + ds.Tables["SatinAlma"].Rows[i]["Birim"].ToString() + "</td> " +
+                     "<td align=\"center\" style=\"border:1px solid Black;\">" + ds.Tables["SatinAlma"].Rows[i]["KullanilacakYer"].ToString() + "</td>";
+            panelihtiyaclarimiz.Controls.Add(Lt1);
+
+            //printer[i] = new HtmlInputCheckBox();
+            //printer[i].ID = "printer" + i.ToString();
+            //printer[i].Value = ds.Tables["SatinAlma"].Rows[i]["TalepID"].ToString();
+            //printer[i].Name = "printer" + i.ToString();
+            //panelihtiyaclarimiz.Controls.Add(printer[i]);
+
+        }
+
+        Literal Lt3 = new Literal();
+        Lt3.Text = "</tr></table>";
+        panelihtiyaclarimiz.Controls.Add(Lt3);
+
+        if (TabloSayisi <= 0)
+        {
+            imgYaziciyaGonder.Visible = false;
+        }
+        else
+        {
+            imgYaziciyaGonder.Visible = true;
+        }
+
+        BaglantilariKapat();
+    }
+
+    protected void btnGuncelle_Click(object sender, EventArgs e)
+    {
+        if (!IsPostBack)
+        {
+            ihtiyacPusulaTablomuz();
+        }
+    }
+
+    protected void imgYaziciyaGonder_Click(object sender, ImageClickEventArgs e)
+    {
+        Session["ihtiyacTalepID"] = null;
+        Session["ihtiyacEvrakNo"] = null;
+        Session["ihtiyacSiparisNo"] = null;
+        Session["ihtiyacMalKodu"] = null;
+        Session["ihtiyacMalAdi"] = null;
+        Session["ihtiyacDepartmanAdi"] = null;
+        Session["ihtiyacTarih"] = null;
+        Session["ihtiyacMiktar"] = null;
+        Session["ihtiyacBirim"] = null;
+        Session["ihtiyacAciklama"] = null;
+        Session["ihtiyacKullanilacakYer"] = null;
+        Session["ihtiyacCarisi"] = null;
+        Session["GelenSiparisNo"] = null;
+
+        for (int i = 0; i < TabloSayisi; i++)
+        {
+            if (printer[i].Checked == true)
+            {
+                Dizimiz = printer[i].Value.ToString();
+                Dizimiz2 = Dizimiz.Split(',');
+                int a = 0;
+
+                string ihtiyacNumarasiAl = EvrakNoBul(Convert.ToInt32(Dizimiz2[a].ToString()));
+                string GelenSipNoKontrol = Session["GelenSiparisNo"] as string;
+
+                if (ihtiyacNumarasiAl != GelenSipNoKontrol)
+                {
+                    TalepBul(ihtiyacNumarasiAl);
+                }
+            }
+        }
+    }
+
+    private void TalepBul(string SiparisNo)
+    {
+        if (DbConnLinkSorgu.State == ConnectionState.Closed)
+            DbConnLinkSorgu.Open();
+
+        Session["GelenSiparisNo"] = SiparisNo.ToString();
+
+        string Sorgu = "SELECT T.TalepID,T.EvrakNoTarih+T.EvrakNo AS EvrakNo,T.Aciklama + ' ' + T.Aciklama2 + ' ' + T.Aciklama3 AS Aciklama ,ISNULL(S.STK002_EvrakSeriNo,'') AS SiparisNo, " +
+                    "T.MalKodu,T.MalAdi, T.DepartmanAdi+' / '+(CASE T.AltDepartmanAdi WHEN '' THEN T.DepartmanAdi ELSE T.AltDepartmanAdi END) AS DepartmanAdi,CONVERT(VARCHAR(10),(CONVERT(DATETIME,Tarih-2)),104) AS Tarih, " +
+                    "CONVERT(NUMERIC(18,2),(CASE WHEN S.STK002_Miktari > 0 THEN S.STK002_Miktari " +
+                    "ELSE T.Miktar END)) AS Miktar,T.Birim,T.MasrafMerkeziAdi AS KullanilacakYer FROM " + SifDb + ".dbo.Tlp AS T " +
+            //"INNER JOIN TalepAkisi AS TA ON T.TalepID = TA.TalepID " +
+                    "LEFT JOIN " + Linkdb.ToString() + ".STK002 AS S ON S.STK002_EvrakSeriNo2=T.EvrakNoTarih+T.EvrakNo " +
+                    "WHERE (S.STK002_EvrakSeriNo2='" + SiparisNo + "' OR T.EvrakNoTarih+T.EvrakNo='" + SiparisNo + "') " +
+                    "GROUP BY T.TalepID,S.STK002_EvrakSeriNo,T.MalKodu,T.MalAdi,T.Aciklama + ' ' + T.Aciklama2 + ' ' + T.Aciklama3, " +
+                    "T.DepartmanAdi,T.Tarih,T.EvrakNoTarih+T.EvrakNo,AltDepartmanAdi, " +
+                    "S.STK002_Miktari,T.Birim,T.MasrafMerkeziAdi,T.Miktar";
+
+        cmd = new SqlCommand(Sorgu, DbConnLinkSorgu);
+        cmd.CommandTimeout = 120;
+        dr = cmd.ExecuteReader(CommandBehavior.CloseConnection);
+
+        while (dr.Read())
+        {
+            Session["ihtiyacTalepID"] += dr["TalepID"].ToString() + ",";
+            Session["ihtiyacEvrakNo"] += dr["EvrakNo"].ToString() + ",";
+            Session["ihtiyacSiparisNo"] += dr["SiparisNo"].ToString() + ",";
+            Session["ihtiyacMalKodu"] += dr["MalKodu"].ToString() + ",";
+            Session["ihtiyacMalAdi"] += dr["MalAdi"].ToString() + "}";
+            Session["ihtiyacDepartmanAdi"] += dr["DepartmanAdi"].ToString() + ",";
+            Session["ihtiyacTarih"] += dr["Tarih"].ToString() + ",";
+            Session["ihtiyacMiktar"] += dr["Miktar"].ToString() + "/";
+            Session["ihtiyacBirim"] += dr["Birim"].ToString() + ",";
+            Session["ihtiyacAciklama"] += dr["Aciklama"].ToString() + "}";
+            Session["ihtiyacKullanilacakYer"] += dr["KullanilacakYer"].ToString() + ",";
+
+            int SiparisEdilenFirmaCarisi = SiparisEdilenFirmaSay(dr["SiparisNo"].ToString());
+
+            if (SiparisEdilenFirmaCarisi == 0)
+            {
+                Session["ihtiyacCarisi"] += " " + "/";
+            }
+            else
+            {
+                Session["ihtiyacCarisi"] += SiparisEdilenFirma(dr["SiparisNo"].ToString()) + "/";
+            }
+        }
+
+        dr.Dispose();
+        dr.Close();
+    }
+
+    private int SiparisEdilenFirmaSay(string SiparisNumarasi)
+    {
+        if (DbConnLink.State == ConnectionState.Closed)
+            DbConnLink.Open();
+
+        string sorgu = "SELECT COUNT(CAR002_Unvan1+CAR002_Unvan2) AS Unvan FROM CAR002 " +
+                    "WHERE CAR002_HesapKodu=(SELECT TOP(1) STK002_CariHesapKodu FROM STK002 " +
+                    "WHERE STK002_EvrakSeriNo='" + SiparisNumarasi.ToString() + "')";
+
+        cmdSiparisCarisi = new SqlCommand(sorgu, DbConnLink);
+        cmdSiparisCarisi.CommandTimeout = 120;
+        return (int)cmdSiparisCarisi.ExecuteScalar();
+    }
+
+    private string SiparisEdilenFirma(string SiparisNumarasi)
+    {
+        if (DbConnLink.State == ConnectionState.Closed)
+            DbConnLink.Open();
+
+        string sorgu = "SELECT CAR002_Unvan1+CAR002_Unvan2 AS Unvan FROM CAR002 " +
+                    "WHERE CAR002_HesapKodu=(SELECT TOP(1) STK002_CariHesapKodu FROM STK002 " +
+                    "WHERE STK002_EvrakSeriNo='" + SiparisNumarasi.ToString() + "')";
+
+        cmdSiparisCarisi = new SqlCommand(sorgu, DbConnLink);
+        cmdSiparisCarisi.CommandTimeout = 120;
+        return (string)cmdSiparisCarisi.ExecuteScalar();
+    }
+
+    private string EvrakNoBul(int TalepID)
+    {
+        if (DbConnUser.State == ConnectionState.Closed)
+            DbConnUser.Open();
+
+        string sorgu = "Select EvrakNoTarih+EvrakNo AS EvrakNo FROM Tlp WHERE TalepID=" + TalepID + "";
+
+        cmd = new SqlCommand(sorgu, DbConnUser);
+
+        return (string)cmd.ExecuteScalar();
+    }
+
+    private void BaglantilariKapat()
+    {
+        DbConnUser.Close();
+        DbConnLink.Close();
+    }
+}
